@@ -76,7 +76,7 @@ jobs:
 
       - name: Setup Inno Setup
         if: steps.check_tag.outputs.EXISTS != 'true'
-        uses: noprint/setup-innosetup@v1
+        run: choco install innosetup -y
 
       - name: Build installer
         if: steps.check_tag.outputs.EXISTS != 'true'
