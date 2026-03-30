@@ -112,6 +112,7 @@ jobs:
         if: steps.check_tag.outputs.EXISTS != 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.TAG }}
           name: ACE Optimizer ${{ steps.version.outputs.TAG }}
           body: |
             ## 🚀 ACE Optimizer ${{ steps.version.outputs.TAG }}
