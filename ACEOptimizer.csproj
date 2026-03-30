@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- ACE Optimizer - Anti-Cheat Engine CPU limiter -->
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
