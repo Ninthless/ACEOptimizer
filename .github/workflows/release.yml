@@ -82,10 +82,11 @@ jobs:
         if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
+          $pwd = $PWD -replace '\\', '/'
           iscc installer/installer.iss `
             /DAppVersion="$version" `
-            /DOutputDir="." `
-            /DSourceDir="." `
+            /DOutputDir="$pwd" `
+            /DSourceDir="$pwd" `
             /DOutputBaseFilename="ACEOptimizer_Setup_v$version"
         shell: pwsh
 
