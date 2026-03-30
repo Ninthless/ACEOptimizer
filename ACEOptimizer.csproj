@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>Properties/app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+
+    <!-- Identity -->
+    <AssemblyName>ACEOptimizer</AssemblyName>
+    <RootNamespace>ACEOptimizer</RootNamespace>
+    <Product>ACE Optimizer</Product>
+    <Company>Ninthless</Company>
+    <Copyright>Copyright © 2026 Ninthless</Copyright>
+
+    <!-- Version -->
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude Inno Setup example files from compilation -->
+    <Compile Remove="inno\**\*" />
+    <None Remove="inno\**\*" />
+    <EmbeddedResource Remove="inno\**\*" />
+    <Page Remove="inno\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets/app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.4" />
+    <PackageReference Include="WPF-UI" Version="3.0.4" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <sys:String x:Key="String_Subtitle">ACE 反作弊 CPU 限制工具</sys:String>
+    <sys:String x:Key="String_StatusHeader">ACE 状态</sys:String>
+    <sys:String x:Key="String_AceStatusIdle">等待支持的游戏运行...</sys:String>
+    <sys:String x:Key="String_AceStatusActive">检测到游戏 — 正在寻找 ACE...</sys:String>
+    <sys:String x:Key="String_AceStatusOptimized">ACE 进程已优化</sys:String>
+    <sys:String x:Key="String_SupportedGames">支持的游戏</sys:String>
+    <sys:String x:Key="String_Game_DeltaForce">三角洲行动</sys:String>
+    <sys:String x:Key="String_Game_Valorant">无畏契约 (VALORANT)</sys:String>
+    <sys:String x:Key="String_Settings">设置</sys:String>
+    <sys:String x:Key="String_RunOnStartup">随系统自动启动</sys:String>
+    <sys:String x:Key="String_StartupDesc">使用任务计划程序 — 支持 UAC 提权</sys:String>
+    <sys:String x:Key="String_MadeBy">由 @Ninthless 制作</sys:String>
+    <sys:String x:Key="String_BadgeIdle">待命</sys:String>
+    <sys:String x:Key="String_BadgeActive">活动</sys:String>
+    <sys:String x:Key="String_BadgeOptimized">优化中</sys:String>
+    <sys:String x:Key="String_TrayRunning">ACE Optimizer — 运行中</sys:String>
+    <sys:String x:Key="String_AlreadyRunning">ACE Optimizer 已经在运行中。</sys:String>
+</ResourceDictionary>
