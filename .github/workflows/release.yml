@@ -2,8 +2,12 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+      - '.github/**'
 
 env:
   DOTNET_VERSION: '8.0.x'
@@ -15,44 +19,67 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Extract version from tag
+      - name: Get version from .csproj
         id: version
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^v', ''
+          [xml]$csproj = Get-Content "ACEOptimizer.csproj"
+          $version = $csproj.Project.PropertyGroup.Version
+          if (-not $version) {
+            $version = "1.0.0"
+          }
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "TAG=v$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: Update version in .csproj
+      - name: Check if tag exists
+        id: check_tag
         run: |
-          $version = "${{ steps.version.outputs.VERSION }}"
-          $csproj = "ACEOptimizer.csproj"
-          (Get-Content $csproj) `
-            -replace '<Version>.*</Version>', "<Version>$version</Version>" `
-            -replace '<AssemblyVersion>.*</AssemblyVersion>', "<AssemblyVersion>$version.0</AssemblyVersion>" `
-            -replace '<FileVersion>.*</FileVersion>', "<FileVersion>$version.0</FileVersion>" |
-            Set-Content $csproj
+          $tag = "${{ steps.version.outputs.TAG }}"
+          $exists = git tag -l $tag
+          if ($exists) {
+            echo "EXISTS=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "EXISTS=false" >> $env:GITHUB_OUTPUT
+          }
         shell: pwsh
+
+      - name: Skip if tag already exists
+        if: steps.check_tag.outputs.EXISTS == 'true'
+        run: |
+          echo "Version ${{ steps.version.outputs.TAG }} already exists. Skipping release."
+          echo "To create a new release, update the version in ACEOptimizer.csproj"
+
+      - name: Build and Release
+        if: steps.check_tag.outputs.EXISTS != 'true'
+        run: |
+          echo "Building version ${{ steps.version.outputs.VERSION }}"
 
       - name: Restore dependencies
+        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet restore
 
       - name: Build
+        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet build --configuration Release --no-restore
 
       - name: Publish
+        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet publish --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
 
       - name: Setup Inno Setup
+        if: steps.check_tag.outputs.EXISTS != 'true'
         uses: noprint/setup-innosetup@v1
 
       - name: Build installer
+        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           iscc installer/installer.iss `
@@ -63,18 +90,29 @@ jobs:
         shell: pwsh
 
       - name: Create portable archive
+        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           Compress-Archive -Path ./publish/ACEOptimizer.exe -DestinationPath ./ACEOptimizer_Portable_v${{ steps.version.outputs.VERSION }}.zip
         shell: pwsh
 
+      - name: Create tag
+        if: steps.check_tag.outputs.EXISTS != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.version.outputs.TAG }} -m "Release ${{ steps.version.outputs.VERSION }}"
+          git push origin ${{ steps.version.outputs.TAG }}
+        shell: pwsh
+
       - name: Create Release
+        if: steps.check_tag.outputs.EXISTS != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: ACE Optimizer v${{ steps.version.outputs.VERSION }}
+          name: ACE Optimizer ${{ steps.version.outputs.TAG }}
           body: |
-            ## 🚀 ACE Optimizer v${{ steps.version.outputs.VERSION }}
+            ## 🚀 ACE Optimizer ${{ steps.version.outputs.TAG }}
             
-            ### 下载
+            ### 📦 下载
             
             | 文件 | 说明 |
             |------|------|

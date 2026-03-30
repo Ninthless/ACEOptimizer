@@ -38,20 +38,28 @@ dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 
 ## 自动发布流程
 
-项目使用 GitHub Actions 自动构建发布。推送 tag 即可触发：
+项目使用 GitHub Actions 自动构建发布。
 
-```bash
-# 创建并推送 tag
-git tag v1.2.0
-git push origin v1.2.0
+**推送代码到 main 分支即可自动发布**（需要更新 `.csproj` 中的版本号）：
+
+1. 修改 `ACEOptimizer.csproj` 中的 `<Version>` 版本号
+2. 提交并推送到 main 分支
+3. GitHub Actions 自动构建并发布
+
+```xml
+<!-- ACEOptimizer.csproj -->
+<Version>1.2.1</Version>
 ```
 
+> 注意：如果版本号对应的 tag 已存在，则不会重复发布。
+
 工作流会自动：
-1. 提取版本号
+1. 读取 `.csproj` 中的版本号
 2. 构建 .NET 项目
 3. 生成安装程序（Inno Setup）
 4. 创建便携版 ZIP
-5. 发布 GitHub Release
+5. 创建 Git tag
+6. 发布 GitHub Release
 
 ## 作者
 
