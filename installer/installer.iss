@@ -1,6 +1,21 @@
+; Build with: iscc installer.iss /DAppVersion="1.2.0" /DOutputDir="." /DSourceDir="." /DOutputBaseFilename="ACEOptimizer_Setup_v1.2.0"
+
+#ifndef AppVersion
+  #define AppVersion "1.2.0"
+#endif
+#ifndef OutputDir
+  #define OutputDir "."
+#endif
+#ifndef SourceDir
+  #define SourceDir "."
+#endif
+#ifndef OutputBaseFilename
+  #define OutputBaseFilename "ACEOptimizer_Setup_v" + AppVersion
+#endif
+
 [Setup]
 AppName=ACE Optimizer
-AppVersion=1.2.0
+AppVersion={#AppVersion}
 AppPublisher=Ninthless
 AppPublisherURL=https://github.com/Ninthless
 AppSupportURL=https://github.com/Ninthless
@@ -8,9 +23,9 @@ AppUpdatesURL=https://github.com/Ninthless
 DefaultDirName={autopf}\ACEOptimizer
 DefaultGroupName=ACE Optimizer
 AllowNoIcons=yes
-OutputDir=e:\Dev\Project\ACEOptimizer\installer
-OutputBaseFilename=ACEOptimizer_Setup_v1.2.0
-SetupIconFile=e:\Dev\Project\ACEOptimizer\app.ico
+OutputDir={#OutputDir}
+OutputBaseFilename={#OutputBaseFilename}
+SetupIconFile={#SourceDir}\Assets\app.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -24,11 +39,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startupicon"; Description: "开机自动启动"; GroupDescription: "启动选项:"; Flags: unchecked
+Name: "startupicon"; Description: "Auto-start on login"; GroupDescription: "Startup options:"; Flags: unchecked
 
 [Files]
-Source: "e:\Dev\Project\ACEOptimizer\publish\ACEOptimizer.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "e:\Dev\Project\ACEOptimizer\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\publish\ACEOptimizer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Assets\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\ACE Optimizer"; Filename: "{app}\ACEOptimizer.exe"
@@ -36,13 +51,13 @@ Name: "{group}\Uninstall ACE Optimizer"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\ACE Optimizer"; Filename: "{app}\ACEOptimizer.exe"; Tasks: desktopicon
 
 [Registry]
-; (Auto-start is handled by Task Scheduler, not registry, see [Run] section below)
+; Auto-start is handled by Task Scheduler, not registry
 
 [Run]
-; Launch after install - use ShellExec so the UAC elevation prompt appears correctly
+; Launch after install
 Filename: "{app}\ACEOptimizer.exe"; Description: "{cm:LaunchProgram,ACE Optimizer}"; Flags: nowait postinstall skipifsilent shellexec
 
-; Create scheduled task for optional auto-start at logon with highest privileges
+; Create scheduled task for optional auto-start at logon
 Filename: "powershell.exe"; Parameters: "-NonInteractive -NoProfile -Command ""$a=New-ScheduledTaskAction -Execute '{app}\ACEOptimizer.exe'; $t=New-ScheduledTaskTrigger -AtLogon; Register-ScheduledTask -TaskName 'ACEOptimizer' -Action $a -Trigger $t -RunLevel Highest -Force"""; Flags: runhidden; Tasks: startupicon
 
 [UninstallRun]

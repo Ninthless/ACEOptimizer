@@ -33,8 +33,25 @@ dotnet build
 ## 发布
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained
+dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
+
+## 自动发布流程
+
+项目使用 GitHub Actions 自动构建发布。推送 tag 即可触发：
+
+```bash
+# 创建并推送 tag
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+工作流会自动：
+1. 提取版本号
+2. 构建 .NET 项目
+3. 生成安装程序（Inno Setup）
+4. 创建便携版 ZIP
+5. 发布 GitHub Release
 
 ## 作者
 

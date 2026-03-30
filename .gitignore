@@ -53,6 +53,7 @@ $RECYCLE.BIN/
 
 # Installer output (generated)
 installer/*.exe
-!installer/ACEOptimizer_Setup_*.exe
+ACEOptimizer_Setup_*.exe
+ACEOptimizer_Portable_*.zip
 
 .claude
