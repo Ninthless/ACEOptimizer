@@ -50,14 +50,14 @@
         <!-- Title Bar -->
         <ui:TitleBar Title="  ACE Optimizer" Grid.Row="0">
             <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/app.ico" />
+                <ui:ImageIcon Source="pack://application:,,,/Assets/app.ico" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
         <!-- System Tray -->
         <tb:TaskbarIcon x:Name="trayIcon"
                          ToolTipText="{DynamicResource String_TrayRunning}"
-                        IconSource="pack://application:,,,/app.ico"
+                        IconSource="pack://application:,,,/Assets/app.ico"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
