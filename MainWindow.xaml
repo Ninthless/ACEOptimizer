@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        Title="ACE Optimizer" Height="540" Width="580"
+        Title="ACE Optimizer" Width="580"
         WindowStartupLocation="CenterScreen"
+        SizeToContent="Height"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica"
         ResizeMode="NoResize"
@@ -61,9 +62,9 @@
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Open" Click="MenuItem_Open_Click"/>
+                    <MenuItem Header="{DynamicResource String_TrayOpen}" Click="MenuItem_Open_Click"/>
                     <Separator/>
-                    <MenuItem Header="Exit" Click="MenuItem_Exit_Click"/>
+                    <MenuItem Header="{DynamicResource String_TrayExit}" Click="MenuItem_Exit_Click"/>
                 </ContextMenu>
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
@@ -222,6 +223,30 @@
                     <ui:ToggleSwitch x:Name="AutoStartToggle" Grid.Column="1"
                                      Checked="AutoStartToggle_Checked"
                                      Unchecked="AutoStartToggle_Unchecked"/>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="14,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource String_AdminPrivileges}" FontSize="13" FontWeight="Medium"
+                                   Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                        <TextBlock x:Name="AdminStatusDetailText" Text="{DynamicResource String_AdminStatusNormalDetail}" FontSize="10"
+                                   Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border Grid.Column="1" CornerRadius="14" Padding="10,5" VerticalAlignment="Center"
+                            Background="{ui:ThemeResource ControlFillColorSecondaryBrush}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="AdminStatusDot" Style="{StaticResource Dot}" Fill="{StaticResource Gray}" Margin="0,0,6,0"/>
+                            <TextBlock x:Name="AdminStatusText" Text="{DynamicResource String_AdminStatusNormal}" FontSize="11"
+                                       FontWeight="SemiBold" VerticalAlignment="Center"
+                                       Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 

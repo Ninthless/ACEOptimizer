@@ -99,6 +99,58 @@ jobs:
           Compress-Archive -Path ./publish/ACEOptimizer.exe -DestinationPath ./ACEOptimizer_Portable_v${{ steps.version.outputs.VERSION }}.zip
         shell: pwsh
 
+      - name: Generate release notes
+        if: steps.check_tag.outputs.EXISTS != 'true'
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $tag = "${{ steps.version.outputs.TAG }}"
+          $repo = "${{ github.repository }}"
+          $previousTag = git tag --sort=-version:refname | Select-Object -First 1
+
+          if ($previousTag) {
+            $range = "$previousTag..HEAD"
+            $compareUrl = "https://github.com/$repo/compare/$previousTag...$tag"
+          } else {
+            $range = "HEAD"
+            $compareUrl = "https://github.com/$repo/commits/$tag"
+          }
+
+          $commits = git log $range --pretty=format:"%s" --no-merges |
+            Where-Object {
+              $_ -and
+              $_ -notmatch '^chore:\s*bump version\b' -and
+              $_ -notmatch '^chore:\s*trigger release\b'
+            } |
+            ForEach-Object { "- $_" }
+
+          if (-not $commits) {
+            $commits = @("- 常规维护与构建更新")
+          }
+
+          $notes = @"
+          ## ACE Optimizer $tag
+
+          ### 更新内容
+          $($commits -join "`r`n")
+
+          ### 下载
+
+          | 文件 | 说明 |
+          |------|------|
+          | ACEOptimizer_Setup_v$version.exe | 安装程序 |
+          | ACEOptimizer_Portable_v$version.zip | 便携版 |
+
+          ### 完整变更
+          - [查看完整对比]($compareUrl)
+
+          ---
+
+          **作者**: [@Ninthless](https://github.com/Ninthless)
+          "@
+
+          Set-Content -Path RELEASE_NOTES.md -Value $notes -Encoding UTF8
+        shell: pwsh
+
       - name: Create tag
         if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
@@ -114,19 +166,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: ACE Optimizer ${{ steps.version.outputs.TAG }}
-          body: |
-            ## 🚀 ACE Optimizer ${{ steps.version.outputs.TAG }}
-            
-            ### 📦 下载
-            
-            | 文件 | 说明 |
-            |------|------|
-            | `ACEOptimizer_Setup_v${{ steps.version.outputs.VERSION }}.exe` | 安装程序 |
-            | `ACEOptimizer_Portable_v${{ steps.version.outputs.VERSION }}.zip` | 便携版 |
-            
-            ---
-            
-            **作者**: [@Ninthless](https://github.com/Ninthless)
+          body_path: RELEASE_NOTES.md
           files: |
             ACEOptimizer_Setup_*.exe
             ACEOptimizer_Portable_*.zip

@@ -1,74 +1,76 @@
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
-using Wpf.Ui.Appearance;
+using ACEOptimizer.Services;
 
 namespace ACEOptimizer
 {
     public partial class App : Application
     {
-        private static System.Threading.Mutex? _mutex;
+        private const string SingleInstanceMutexName = "ACE_Optimizer_SingleInstance_Mutex";
+
+        private static Mutex? _mutex;
+        private readonly LocalizationService _localizationService = new();
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Single Instance Check
-            bool createdNew;
-            _mutex = new System.Threading.Mutex(true, "ACE_Optimizer_SingleInstance_Mutex", out createdNew);
-
-            if (!createdNew)
+            if (!EnsureSingleInstance())
             {
-                // App is already running. Need to load strings first to show localized message.
-                string culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
-                string resPath = culture.StartsWith("zh") ? "Resources/Strings.zh-CN.xaml" : "Resources/Strings.en-US.xaml";
-                try
-                {
-                    var dict = new ResourceDictionary { Source = new Uri($"pack://application:,,,/{resPath}", UriKind.Absolute) };
-                    string? msg = dict["String_AlreadyRunning"] as string;
-                    MessageBox.Show(msg ?? "ACE Optimizer is already running.", "ACE Optimizer", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch { MessageBox.Show("ACE Optimizer is already running."); }
-                
                 Current.Shutdown();
                 return;
             }
 
             base.OnStartup(e);
-            
-            // Language detection
-            string currentCulture = System.Globalization.CultureInfo.CurrentUICulture.Name;
-            string resourcePath = currentCulture.StartsWith("zh") 
-                ? "Resources/Strings.zh-CN.xaml" 
-                : "Resources/Strings.en-US.xaml";
+            LoadLocalizationResources();
+            RegisterUnhandledExceptionHandlers();
+        }
 
+        private bool EnsureSingleInstance()
+        {
+            _mutex = new Mutex(true, SingleInstanceMutexName, out bool createdNew);
+            if (createdNew)
+                return true;
+
+            ShowAlreadyRunningMessage();
+            return false;
+        }
+
+        private void ShowAlreadyRunningMessage()
+        {
+            string title = _localizationService.GetStringForCurrentCulture("String_AppTitle", "ACE Optimizer");
+            string message = _localizationService.GetStringForCurrentCulture("String_AlreadyRunning", "ACE Optimizer is already running.");
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void LoadLocalizationResources()
+        {
             try
             {
-                // Use Pack URI format for compiled resources
-                var dict = new ResourceDictionary 
-                { 
-                    Source = new Uri($"pack://application:,,,/{resourcePath}", UriKind.Absolute) 
-                };
-                this.Resources.MergedDictionaries.Add(dict);
+                _localizationService.LoadApplicationResources(this);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load i18n resources: {ex.Message}");
+                Debug.WriteLine($"Failed to load i18n resources: {ex.Message}");
             }
+        }
 
-            this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+        private void RegisterUnhandledExceptionHandlers()
+        {
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         }
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
         {
-            // 0x80263001: Desktop composition is disabled (e.g. in some RDP sessions).
-            // WPF-UI's FluentWindow/WindowChrome will throw this when DWM is unavailable.
-            // Silently ignore it — the window will render without Mica/glass effects.
-            if (e.Exception is System.Runtime.InteropServices.COMException comEx
-                && (uint)comEx.HResult == 0x80263001)
+            if (IsDesktopCompositionUnavailable(e.Exception))
             {
                 e.Handled = true;
                 return;
             }
 
-            MessageBox.Show($"UI Thread Exception: {e.Exception.Message}\n\n{e.Exception.StackTrace}", "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowFatalError("String_UIThreadException", "UI Thread Exception", e.Exception);
             e.Handled = true;
             Environment.Exit(1);
         }
@@ -77,9 +79,29 @@ namespace ACEOptimizer
         {
             if (e.ExceptionObject is Exception ex)
             {
-                MessageBox.Show($"Background Thread Exception: {ex.Message}\n\n{ex.StackTrace}", "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowFatalError("String_BackgroundThreadException", "Background Thread Exception", ex);
             }
+
             Environment.Exit(1);
+        }
+
+        private static bool IsDesktopCompositionUnavailable(Exception exception)
+        {
+            return exception is COMException comException
+                && (uint)comException.HResult == 0x80263001;
+        }
+
+        private void ShowFatalError(string messageKey, string fallbackMessage, Exception exception)
+        {
+            string title = GetString("String_FatalErrorTitle", "Fatal Error");
+            string prefix = GetString(messageKey, fallbackMessage);
+            string body = $"{prefix}: {exception.Message}\n\n{exception.StackTrace}";
+            MessageBox.Show(body, title, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        private string GetString(string resourceKey, string fallback)
+        {
+            return _localizationService.GetStringFromApplicationResources(this, resourceKey, fallback);
         }
     }
 }
