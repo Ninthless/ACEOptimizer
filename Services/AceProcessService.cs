@@ -26,7 +26,7 @@ namespace ACEOptimizer.Services
             }
         }
 
-        public AceOptimizationResult EvaluateAndOptimize(nint affinityMask)
+        public AceOptimizationResult DetectAndOptimize(nint affinityMask)
         {
             HashSet<string> detectedProcesses = new(StringComparer.OrdinalIgnoreCase);
             bool accessDenied = false;

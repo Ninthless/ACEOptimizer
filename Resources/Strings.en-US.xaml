@@ -1,11 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
-    <sys:String x:Key="String_Subtitle">Anti-Cheat Engine CPU limiter</sys:String>
+    <sys:String x:Key="String_Subtitle">Direct ACE process CPU limiter</sys:String>
     <sys:String x:Key="String_AppTitle">ACE Optimizer</sys:String>
     <sys:String x:Key="String_StatusHeader">ACE STATUS</sys:String>
-    <sys:String x:Key="String_AceStatusIdle">Waiting for a supported game...</sys:String>
-    <sys:String x:Key="String_AceStatusActive">Game detected — searching for ACE...</sys:String>
+    <sys:String x:Key="String_AceStatusIdle">Waiting for ACE process...</sys:String>
     <sys:String x:Key="String_AceStatusOptimized">ACE is being throttled</sys:String>
     <sys:String x:Key="String_AceStatusBlocked">ACE detected, but optimization is blocked</sys:String>
     <sys:String x:Key="String_AceDetailOptimized">{0} — Priority Idle · Last Core</sys:String>
@@ -16,9 +15,8 @@
     <sys:String x:Key="String_FatalErrorTitle">Fatal Error</sys:String>
     <sys:String x:Key="String_UIThreadException">UI Thread Exception</sys:String>
     <sys:String x:Key="String_BackgroundThreadException">Background Thread Exception</sys:String>
-    <sys:String x:Key="String_SupportedGames">SUPPORTED GAMES</sys:String>
-    <sys:String x:Key="String_Game_DeltaForce">Delta Force</sys:String>
-    <sys:String x:Key="String_Game_Valorant">VALORANT</sys:String>
+    <sys:String x:Key="String_MonitoredProcesses">MONITORED ACE PROCESSES</sys:String>
+    <sys:String x:Key="String_ProcessScope">Direct scan without a game allowlist</sys:String>
     <sys:String x:Key="String_Settings">SETTINGS</sys:String>
     <sys:String x:Key="String_RunOnStartup">Run on Windows Startup</sys:String>
     <sys:String x:Key="String_StartupDesc">Uses Task Scheduler — supports UAC elevation</sys:String>
@@ -31,9 +29,9 @@
     <sys:String x:Key="String_AdminStatusNormalDetail">Some ACE versions require administrator rights to change priority or CPU affinity.</sys:String>
     <sys:String x:Key="String_MadeBy">Made by @Ninthless</sys:String>
     <sys:String x:Key="String_BadgeIdle">IDLE</sys:String>
-    <sys:String x:Key="String_BadgeActive">ACTIVE</sys:String>
     <sys:String x:Key="String_BadgeOptimized">OPTIMIZED</sys:String>
     <sys:String x:Key="String_BadgeBlocked">BLOCKED</sys:String>
+    <sys:String x:Key="String_PillIdle">No ACE</sys:String>
     <sys:String x:Key="String_TrayOpen">Open</sys:String>
     <sys:String x:Key="String_TrayExit">Exit</sys:String>
     <sys:String x:Key="String_TrayRunning">ACE Optimizer — Running</sys:String>

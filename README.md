@@ -1,21 +1,21 @@
 # ACE Optimizer
 
-ACE 反作弊 CPU 优化工具，用于降低 ACE 反作弊引擎对 CPU 的占用。
+ACE 反作弊 CPU 优化工具，用于直接检测并限制 ACE 进程，降低反作弊引擎对 CPU 的占用。
 
 ## 功能
 
-- 自动检测支持的游戏进程
+- 直接检测 ACE 进程，无需预设游戏进程
 - 将 ACE 进程优先级降为 Idle
 - 将 ACE 进程绑定到最后一个 CPU 核心
 - 支持最小化到系统托盘
 - 支持开机自启（通过任务计划程序，支持 UAC 提权）
 
-## 支持的游戏
+## 监控的 ACE 进程
 
-| 游戏 | 进程名 |
-|------|--------|
-| 三角洲行动 | `DeltaForceClient-Win64-Shipping` |
-| 无畏契约 (VALORANT) | `VALORANT-Win64-Shipping` |
+| 进程名 | 说明 |
+|--------|------|
+| `SGuard64` | ACE 用户态进程 |
+| `SGuardSvc64` | ACE 服务进程 |
 
 ## 技术栈
 
@@ -48,7 +48,7 @@ dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 
 ```xml
 <!-- ACEOptimizer.csproj -->
-<Version>1.2.1</Version>
+<Version>1.2.5</Version>
 ```
 
 > 注意：如果版本号对应的 tag 已存在，则不会重复发布。

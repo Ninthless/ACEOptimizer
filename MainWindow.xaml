@@ -13,7 +13,6 @@
         StateChanged="Window_StateChanged">
 
     <Window.Resources>
-        <!-- Card style -->
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background" Value="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"/>
             <Setter Property="BorderBrush" Value="{ui:ThemeResource CardStrokeColorDefaultBrush}"/>
@@ -23,12 +22,10 @@
             <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
 
-        <!-- Accent card (glowing) -->
         <Style x:Key="AccentCard" TargetType="Border" BasedOn="{StaticResource Card}">
             <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorDefaultBrush}"/>
         </Style>
 
-        <!-- Status dot -->
         <Style x:Key="Dot" TargetType="Ellipse">
             <Setter Property="Width" Value="9"/>
             <Setter Property="Height" Value="9"/>
@@ -48,14 +45,12 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Title Bar -->
         <ui:TitleBar Title="  ACE Optimizer" Grid.Row="0">
             <ui:TitleBar.Icon>
                 <ui:ImageIcon Source="pack://application:,,,/Assets/app.ico" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
-        <!-- System Tray -->
         <tb:TaskbarIcon x:Name="trayIcon"
                          ToolTipText="{DynamicResource String_TrayRunning}"
                         IconSource="pack://application:,,,/Assets/app.ico"
@@ -69,25 +64,19 @@
             </tb:TaskbarIcon.ContextMenu>
         </tb:TaskbarIcon>
 
-        <!-- Content -->
         <StackPanel Grid.Row="1" Margin="24,18,24,18">
-
-            <!-- ── Hero Header ── -->
             <Grid Margin="0,0,0,18">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
-                    <!-- Active Game Pill -->
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Icon -->
                 <Border Grid.Column="0" Width="52" Height="52" CornerRadius="12"
                         Background="#1d2d50" VerticalAlignment="Center" Margin="0,0,14,0">
                     <ui:SymbolIcon Symbol="ShieldLock24" FontSize="26" Foreground="#60a5fa" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
-                <!-- Title -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="ACE Optimizer" FontSize="20" FontWeight="SemiBold"
                                Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
@@ -95,18 +84,16 @@
                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <!-- Live active-game pill -->
-                <Border x:Name="ActiveGamePill" Grid.Column="2" VerticalAlignment="Center"
+                <Border x:Name="MonitorPill" Grid.Column="2" VerticalAlignment="Center"
                         Background="#0f2a16" CornerRadius="20" Padding="12,5">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse x:Name="PillDot" Style="{StaticResource Dot}" Fill="{StaticResource Gray}"/>
-                        <TextBlock x:Name="PillText" Text="No game" FontSize="11" FontWeight="SemiBold"
+                        <TextBlock x:Name="PillText" Text="{DynamicResource String_PillIdle}" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{StaticResource Gray}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!-- ── ACE Status Card ── -->
             <Border Style="{StaticResource AccentCard}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -128,7 +115,6 @@
                                    Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"/>
                     </StackPanel>
 
-                    <!-- Status chip (replaces old circle) -->
                     <Border x:Name="AceBadge" Grid.Column="1"
                             CornerRadius="8" Padding="12,8"
                             VerticalAlignment="Center" HorizontalAlignment="Right"
@@ -148,11 +134,9 @@
                 </Grid>
             </Border>
 
-            <!-- ── Supported Games ── -->
-            <TextBlock Text="{DynamicResource String_SupportedGames}" FontSize="10" FontWeight="SemiBold" Opacity="0.5"
+            <TextBlock Text="{DynamicResource String_MonitoredProcesses}" FontSize="10" FontWeight="SemiBold" Opacity="0.5"
                        Margin="2,6,0,8" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
 
-            <!-- Game Row: Delta Force -->
             <Border Style="{StaticResource Card}" Padding="14,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -166,19 +150,18 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{DynamicResource String_Game_DeltaForce}" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="SGuard64" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="DeltaForceClient-Win64-Shipping" FontSize="10"
+                        <TextBlock Text="{DynamicResource String_ProcessScope}" FontSize="10"
                                    Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" Margin="0,1,0,0"/>
                     </StackPanel>
-                    <Ellipse x:Name="DeltaDot" Grid.Column="2"
+                    <Ellipse x:Name="SGuard64Dot" Grid.Column="2"
                              Width="9" Height="9"
                              VerticalAlignment="Center" HorizontalAlignment="Right"
                              Fill="{StaticResource Gray}"/>
                 </Grid>
             </Border>
 
-            <!-- Game Row: VALORANT -->
             <Border Style="{StaticResource Card}" Padding="14,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -192,19 +175,18 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{DynamicResource String_Game_Valorant}" FontSize="13" FontWeight="SemiBold"
+                        <TextBlock Text="SGuardSvc64" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="VALORANT-Win64-Shipping" FontSize="10"
+                        <TextBlock Text="{DynamicResource String_ProcessScope}" FontSize="10"
                                    Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" Margin="0,1,0,0"/>
                     </StackPanel>
-                    <Ellipse x:Name="ValorantDot" Grid.Column="2"
+                    <Ellipse x:Name="SGuardSvc64Dot" Grid.Column="2"
                              Width="9" Height="9"
                              VerticalAlignment="Center" HorizontalAlignment="Right"
                              Fill="{StaticResource Gray}"/>
                 </Grid>
             </Border>
 
-            <!-- ── Settings ── -->
             <TextBlock Text="{DynamicResource String_Settings}" FontSize="10" FontWeight="SemiBold" Opacity="0.5"
                        Margin="2,4,0,8" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
 
@@ -250,7 +232,6 @@
                 </Grid>
             </Border>
 
-            <!-- ── Footer ── -->
             <TextBlock HorizontalAlignment="Center" Margin="0,10,0,0"
                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" FontSize="11">
                 <Run Text="{DynamicResource String_MadeBy}"/>

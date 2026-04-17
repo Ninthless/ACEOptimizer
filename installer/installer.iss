@@ -1,7 +1,7 @@
-; Build with: iscc installer.iss /DAppVersion="1.2.0" /DOutputDir="." /DSourceDir="." /DOutputBaseFilename="ACEOptimizer_Setup_v1.2.0"
+; Build with: iscc installer.iss /DAppVersion="1.2.5" /DOutputDir="." /DSourceDir="." /DOutputBaseFilename="ACEOptimizer_Setup_v1.2.5"
 
 #ifndef AppVersion
-  #define AppVersion "1.2.0"
+  #define AppVersion "1.2.5"
 #endif
 #ifndef OutputDir
   #define OutputDir "."

@@ -17,7 +17,6 @@ namespace ACEOptimizer
         private enum AceUiState
         {
             Idle,
-            Active,
             Optimized,
             Blocked
         }
@@ -26,18 +25,17 @@ namespace ACEOptimizer
         private readonly AutoStartService _autoStartService = new();
         private readonly ElevationService _elevationService = new();
         private readonly DispatcherTimer _timer;
-        private readonly IReadOnlyList<GameProfile> _games;
-        private readonly Dictionary<string, Ellipse> _gameDots;
+        private readonly Dictionary<string, Ellipse> _aceProcessDots;
         private readonly bool _isElevated;
         private bool _hasShownElevationPrompt;
+        private bool _isExitRequested;
         private nint _affinityMask;
 
         public MainWindow()
         {
             InitializeComponent();
             _isElevated = _elevationService.IsRunningElevated();
-            _games = CreateGameProfiles();
-            _gameDots = CreateGameDots();
+            _aceProcessDots = CreateAceProcessDots();
 
             UpdatePrivilegeStatus();
             _affinityMask = _aceProcessService.CalculateAffinityMask();
@@ -46,26 +44,15 @@ namespace ACEOptimizer
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
             _timer.Tick += Timer_Tick;
             _timer.Start();
-            
-            // Initial call to set UI
             Timer_Tick(null, EventArgs.Empty);
         }
 
-        private static IReadOnlyList<GameProfile> CreateGameProfiles()
-        {
-            return
-            [
-                new("DeltaForceClient-Win64-Shipping", "String_Game_DeltaForce"),
-                new("VALORANT-Win64-Shipping", "String_Game_Valorant"),
-            ];
-        }
-
-        private Dictionary<string, Ellipse> CreateGameDots()
+        private Dictionary<string, Ellipse> CreateAceProcessDots()
         {
             return new Dictionary<string, Ellipse>(StringComparer.OrdinalIgnoreCase)
             {
-                ["DeltaForceClient-Win64-Shipping"] = DeltaDot,
-                ["VALORANT-Win64-Shipping"] = ValorantDot
+                ["SGuard64"] = SGuard64Dot,
+                ["SGuardSvc64"] = SGuardSvc64Dot
             };
         }
 
@@ -107,21 +94,16 @@ namespace ACEOptimizer
             SolidColorBrush gray = GetBrush("Gray", Color.FromRgb(0x6b, 0x72, 0x80));
             SolidColorBrush amber = GetBrush("Amber", Color.FromRgb(0xf5, 0x9e, 0x0b));
 
-            GameProfile? activeGame = UpdateGameIndicators(green, gray);
-            if (activeGame == null)
+            AceOptimizationResult aceStatus = _aceProcessService.DetectAndOptimize(_affinityMask);
+            UpdateAceProcessIndicators(aceStatus.DetectedProcesses, green, gray);
+
+            if (!aceStatus.HasDetectedProcesses)
             {
                 SetIdleState(gray);
                 return;
             }
 
-            SetActiveGamePill(activeGame, green);
-
-            AceOptimizationResult aceStatus = _aceProcessService.EvaluateAndOptimize(_affinityMask);
-            if (!aceStatus.HasDetectedProcesses)
-            {
-                SetAceStatus(amber, AceUiState.Active, GetString("String_AceStatusActive", "Game detected — searching for ACE..."));
-                return;
-            }
+            SetMonitorPill(aceStatus.DetectedProcesses, green);
 
             if (aceStatus.AccessDenied)
             {
@@ -143,43 +125,31 @@ namespace ACEOptimizer
             PromptForElevation();
         }
 
-        private GameProfile? UpdateGameIndicators(SolidColorBrush runningBrush, SolidColorBrush idleBrush)
+        private void UpdateAceProcessIndicators(IEnumerable<string> detectedProcesses, SolidColorBrush runningBrush, SolidColorBrush idleBrush)
         {
-            GameProfile? activeGame = null;
+            HashSet<string> detected = new(detectedProcesses, StringComparer.OrdinalIgnoreCase);
 
-            foreach (GameProfile game in _games)
+            foreach (KeyValuePair<string, Ellipse> entry in _aceProcessDots)
             {
-                bool running = Process.GetProcessesByName(game.ProcessName).Length > 0;
-                UpdateGameDot(game.ProcessName, running ? runningBrush : idleBrush);
-
-                if (running && activeGame == null)
-                    activeGame = game;
+                entry.Value.Fill = detected.Contains(entry.Key) ? runningBrush : idleBrush;
             }
-
-            return activeGame;
         }
 
-        private void UpdateGameDot(string processName, SolidColorBrush brush)
-        {
-            if (_gameDots.TryGetValue(processName, out Ellipse? dot))
-                dot.Fill = brush;
-        }
-
-        private void SetActiveGamePill(GameProfile activeGame, SolidColorBrush accentBrush)
+        private void SetMonitorPill(IEnumerable<string> detectedProcesses, SolidColorBrush accentBrush)
         {
             PillDot.Fill = accentBrush;
-            PillText.Text = GetString(activeGame.DisplayNameResourceKey, activeGame.ProcessName);
+            PillText.Text = string.Join("  ·  ", detectedProcesses);
             PillText.Foreground = accentBrush;
-            ActiveGamePill.Background = new SolidColorBrush(Color.FromArgb(40, 0x22, 0xc5, 0x5e));
+            MonitorPill.Background = new SolidColorBrush(Color.FromArgb(40, 0x22, 0xc5, 0x5e));
         }
 
         private void SetIdleState(SolidColorBrush idleBrush)
         {
             PillDot.Fill = idleBrush;
-            PillText.Text = GetString("String_BadgeIdle", "IDLE");
+            PillText.Text = GetString("String_PillIdle", "No ACE");
             PillText.Foreground = idleBrush;
-            ActiveGamePill.Background = new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27));
-            SetAceStatus(idleBrush, AceUiState.Idle, GetString("String_AceStatusIdle", "Waiting for a supported game..."));
+            MonitorPill.Background = new SolidColorBrush(Color.FromRgb(0x11, 0x18, 0x27));
+            SetAceStatus(idleBrush, AceUiState.Idle, GetString("String_AceStatusIdle", "Waiting for ACE process..."));
         }
 
         private string BuildOptimizedDetail(IEnumerable<string> aceProcesses)
@@ -228,6 +198,7 @@ namespace ACEOptimizer
 
             if (_elevationService.TryRestartElevated(executablePath))
             {
+                _isExitRequested = true;
                 Application.Current.Shutdown();
                 return;
             }
@@ -243,7 +214,6 @@ namespace ACEOptimizer
             {
                 AceUiState.Optimized => "String_AceStatusOptimized",
                 AceUiState.Blocked => "String_AceStatusBlocked",
-                AceUiState.Active => "String_AceStatusActive",
                 _ => "String_AceStatusIdle"
             };
             
@@ -251,7 +221,6 @@ namespace ACEOptimizer
             {
                 AceUiState.Optimized => "String_BadgeOptimized",
                 AceUiState.Blocked => "String_BadgeBlocked",
-                AceUiState.Active => "String_BadgeActive",
                 _ => "String_BadgeIdle"
             };
 
@@ -266,7 +235,6 @@ namespace ACEOptimizer
             {
                 AceUiState.Optimized => Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle24,
                 AceUiState.Blocked => Wpf.Ui.Controls.SymbolRegular.Prohibited24,
-                AceUiState.Active => Wpf.Ui.Controls.SymbolRegular.Prohibited24,
                 _ => Wpf.Ui.Controls.SymbolRegular.CircleLine24,
             };
 
@@ -274,7 +242,6 @@ namespace ACEOptimizer
             {
                 AceUiState.Optimized => Color.FromArgb(40, 0x22, 0xc5, 0x5e),
                 AceUiState.Blocked => Color.FromArgb(40, 0xef, 0x44, 0x44),
-                AceUiState.Active => Color.FromArgb(40, 0xf5, 0x9e, 0x0b),
                 _ => Color.FromRgb(0x11, 0x18, 0x27),
             };
         }
@@ -316,9 +283,6 @@ namespace ACEOptimizer
             }
         }
 
-        // ---------------------------------------------------------------
-        // Window / Tray
-        // ---------------------------------------------------------------
         private void Window_StateChanged(object sender, EventArgs e)
         {
             if (WindowState == WindowState.Minimized) ShowInTaskbar = false;
@@ -326,7 +290,11 @@ namespace ACEOptimizer
 
         private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e) => RestoreWindow();
         private void MenuItem_Open_Click(object sender, RoutedEventArgs e) => RestoreWindow();
-        private void MenuItem_Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+        private void MenuItem_Exit_Click(object sender, RoutedEventArgs e)
+        {
+            _isExitRequested = true;
+            Application.Current.Shutdown();
+        }
 
         private void RestoreWindow()
         {
@@ -343,6 +311,12 @@ namespace ACEOptimizer
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
+            if (_isExitRequested)
+            {
+                trayIcon.Dispose();
+                return;
+            }
+
             e.Cancel = true;
             WindowState = WindowState.Minimized;
         }
