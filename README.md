@@ -1,66 +1,100 @@
 # ACE Optimizer
 
-ACE 反作弊 CPU 优化工具，用于直接检测并限制 ACE 进程，降低反作弊引擎对 CPU 的占用。
+ACE Optimizer is a lightweight Windows utility that detects ACE anti-cheat processes directly and reduces their CPU impact by lowering process priority and pinning them to the last CPU core.
 
-## 功能
+简体中文：ACE Optimizer 是一个 Windows 桌面工具，会直接检测 ACE 反作弊进程，并通过降低优先级、绑定最后一个 CPU 核心来减少 CPU 占用。
 
-- 直接检测 ACE 进程，无需预设游戏进程
-- 将 ACE 进程优先级降为 Idle
-- 将 ACE 进程绑定到最后一个 CPU 核心
-- 支持最小化到系统托盘
-- 支持开机自启（通过任务计划程序，支持 UAC 提权）
+## Highlights
 
-## 监控的 ACE 进程
+- Direct ACE process detection without a game allowlist
+- Sets detected ACE processes to `Idle` priority
+- Pins detected ACE processes to the last CPU core
+- Runs quietly in the system tray
+- Optional startup task via Windows Task Scheduler with elevation support
+- English and Simplified Chinese UI resources
 
-| 进程名 | 说明 |
-|--------|------|
-| `SGuard64` | ACE 用户态进程 |
-| `SGuardSvc64` | ACE 服务进程 |
+## Monitored Processes
 
-## 技术栈
+| Process | Description |
+| --- | --- |
+| `SGuard64` | ACE user-mode process |
+| `SGuardSvc64` | ACE service process |
 
-- .NET 8 + WPF
-- WPF-UI 3.0.4 (Fluent Design)
+## Platform
+
+ACE Optimizer is built for Windows 10 and Windows 11.
+
+Some ACE versions require administrator privileges before Windows allows priority or CPU-affinity changes. If optimization is blocked, restart ACE Optimizer as administrator when prompted.
+
+## Download
+
+Download the latest installer or portable archive from GitHub Releases:
+
+[ACE Optimizer Releases](https://github.com/Ninthless/ACEOptimizer/releases)
+
+Release assets usually include:
+
+| File | Description |
+| --- | --- |
+| `ACEOptimizer_Setup_v*.exe` | Windows installer |
+| `ACEOptimizer_Portable_v*.zip` | Portable single-file build |
+
+## Usage
+
+1. Start ACE Optimizer.
+2. Launch a game or application that starts ACE.
+3. ACE Optimizer detects `SGuard64` or `SGuardSvc64` automatically.
+4. When access is allowed, the detected process is moved to `Idle` priority and pinned to the last CPU core.
+5. Use the tray icon to reopen or exit the app.
+
+## Tech Stack
+
+- .NET 8
+- WPF
+- WPF-UI 3.0.4
 - H.NotifyIcon.Wpf 2.1.4
-- Inno Setup (安装程序)
+- Inno Setup
+- GitHub Actions
 
-## 构建
+## Build
 
-```bash
+```powershell
+dotnet restore
 dotnet build
 ```
 
-## 发布
+## Publish Locally
 
-```bash
-dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+```powershell
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
 ```
 
-## 自动发布流程
+## Automated Release
 
-项目使用 GitHub Actions 自动构建发布。
+The repository includes a GitHub Actions workflow that builds and publishes releases from the `main` branch.
 
-**推送代码到 main 分支即可自动发布**（需要更新 `.csproj` 中的版本号）：
+To create a new release:
 
-1. 修改 `ACEOptimizer.csproj` 中的 `<Version>` 版本号
-2. 提交并推送到 main 分支
-3. GitHub Actions 自动构建并发布
+1. Update the version in `ACEOptimizer.csproj`.
+2. Commit and push to `main`.
+3. The workflow builds the app, creates the installer and portable archive, creates a Git tag, and publishes a GitHub Release.
+
+Example:
 
 ```xml
-<!-- ACEOptimizer.csproj -->
 <Version>1.2.5</Version>
+<AssemblyVersion>1.2.5.0</AssemblyVersion>
+<FileVersion>1.2.5.0</FileVersion>
 ```
 
-> 注意：如果版本号对应的 tag 已存在，则不会重复发布。
+If the matching tag already exists, the release workflow skips publishing.
 
-工作流会自动：
-1. 读取 `.csproj` 中的版本号
-2. 构建 .NET 项目
-3. 生成安装程序（Inno Setup）
-4. 创建便携版 ZIP
-5. 创建 Git tag
-6. 发布 GitHub Release
+## Notes
 
-## 作者
+- ACE Optimizer only changes process priority and CPU affinity for the monitored ACE process names.
+- It does not modify game files, anti-cheat files, drivers, or system services.
+- Compatibility can change if ACE changes process names or blocks priority and affinity updates.
 
-[@Ninthless](https://github.com/Ninthless)
+## Author
+
+Created by [@Ninthless](https://github.com/Ninthless).
