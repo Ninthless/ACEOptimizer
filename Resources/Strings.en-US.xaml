@@ -42,4 +42,6 @@
     <sys:String x:Key="String_UpdateDownloading">Downloading...</sys:String>
     <sys:String x:Key="String_UpdateDownloadFailed">Download failed — open in browser</sys:String>
     <sys:String x:Key="String_UpdateOpenBrowser">Open in Browser</sys:String>
+    <sys:String x:Key="String_UpdateConfirmTitle">Run installer?</sys:String>
+    <sys:String x:Key="String_UpdateConfirmMessage">Download complete. SHA-256:&#x0a;{0}&#x0a;&#x0a;Run the installer now?</sys:String>
 </ResourceDictionary>

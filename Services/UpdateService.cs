@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +14,8 @@ namespace ACEOptimizer.Services
     internal sealed class UpdateService : IDisposable
     {
         private const string ReleasesApiUrl = "https://api.github.com/repos/Ninthless/ACEOptimizer/releases/latest";
-        private const string UserAgent = "ACEOptimizer-UpdateChecker";
+        private static readonly string UserAgent =
+            $"ACEOptimizer/{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"} (Windows; +https://github.com/Ninthless/ACEOptimizer)";
 
         private readonly HttpClient _httpClient;
 
@@ -58,12 +60,14 @@ namespace ACEOptimizer.Services
             }
         }
 
-        public async Task<string> DownloadInstallerAsync(
+        public async Task<(string Path, string Sha256)> DownloadInstallerAsync(
             string url,
             IProgress<int>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            string tempPath = Path.Combine(Path.GetTempPath(), $"ACEOptimizer_Update_{Guid.NewGuid():N}.exe");
+            string tempDir = Path.Combine(Path.GetTempPath(), $"ACEOptimizer_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempPath = Path.Combine(tempDir, "ACEOptimizer_Setup.exe");
 
             using HttpResponseMessage response = await _httpClient
                 .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
@@ -88,7 +92,15 @@ namespace ACEOptimizer.Services
                     progress?.Report((int)(downloaded * 100 / total));
             }
 
-            return tempPath;
+            string sha256 = await ComputeSha256Async(tempPath).ConfigureAwait(false);
+            return (tempPath, sha256);
+        }
+
+        private static async Task<string> ComputeSha256Async(string filePath)
+        {
+            await using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
+            byte[] hash = await SHA256.HashDataAsync(fs).ConfigureAwait(false);
+            return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
         public void LaunchInstallerAndExit(string installerPath)
@@ -96,7 +108,8 @@ namespace ACEOptimizer.Services
             Process.Start(new ProcessStartInfo
             {
                 FileName = installerPath,
-                UseShellExecute = true
+                UseShellExecute = true,
+                Verb = string.Empty
             });
 
             System.Windows.Application.Current.Dispatcher.Invoke(() =>

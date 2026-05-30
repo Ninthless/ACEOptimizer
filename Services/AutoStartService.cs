@@ -28,7 +28,7 @@ namespace ACEOptimizer.Services
             string command =
                 $"$a = New-ScheduledTaskAction -Execute '{escapedPath}'; " +
                 $"$t = New-ScheduledTaskTrigger -AtLogon; " +
-                $"Register-ScheduledTask -TaskName '{TaskName}' -Action $a -Trigger $t -RunLevel Highest -Force";
+                $"Register-ScheduledTask -TaskName '{TaskName}' -Action $a -Trigger $t -RunLevel Limited -Force";
 
             RunPowerShellOrThrow(command);
         }

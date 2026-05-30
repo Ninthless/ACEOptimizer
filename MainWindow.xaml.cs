@@ -92,9 +92,25 @@ namespace ACEOptimizer
                     Dispatcher.Invoke(() =>
                         UpdateActionButton.Content = $"{GetString("String_UpdateDownloading", "Downloading...")} {pct}%"));
 
-                string installerPath = await _updateService
+                (string installerPath, string sha256) = await _updateService
                     .DownloadInstallerAsync(_pendingUpdate.InstallerUrl, progress)
                     .ConfigureAwait(true);
+
+                string confirmTitle = GetString("String_UpdateConfirmTitle", "Run installer?");
+                string confirmMsg = GetString("String_UpdateConfirmMessage", "Download complete. SHA-256:\n{0}\n\nRun the installer now?");
+                System.Windows.MessageBoxResult confirm = System.Windows.MessageBox.Show(
+                    string.Format(confirmMsg, sha256),
+                    confirmTitle,
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Question);
+
+                if (confirm != System.Windows.MessageBoxResult.Yes)
+                {
+                    _isDownloading = false;
+                    UpdateActionButton.IsEnabled = true;
+                    UpdateActionButton.Content = GetString("String_UpdateButton", "Update");
+                    return;
+                }
 
                 _isExitRequested = true;
                 _updateService.LaunchInstallerAndExit(installerPath);
