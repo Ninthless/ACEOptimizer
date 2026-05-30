@@ -44,4 +44,5 @@
     <sys:String x:Key="String_UpdateOpenBrowser">在浏览器中打开</sys:String>
     <sys:String x:Key="String_UpdateConfirmTitle">运行安装程序？</sys:String>
     <sys:String x:Key="String_UpdateConfirmMessage">下载完成。SHA-256：&#x0a;{0}&#x0a;&#x0a;现在运行安装程序吗？</sys:String>
+    <sys:String x:Key="String_UpdateRateLimited">GitHub 请求频率超限 — 点击在浏览器中手动检查</sys:String>
 </ResourceDictionary>

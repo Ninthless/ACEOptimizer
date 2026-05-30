@@ -54,6 +54,10 @@ namespace ACEOptimizer.Services
             {
                 return UpdateCheckResult.NoUpdate();
             }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                return UpdateCheckResult.RateLimited();
+            }
             catch
             {
                 return UpdateCheckResult.NoUpdate();
@@ -143,11 +147,19 @@ namespace ACEOptimizer.Services
     internal sealed class UpdateCheckResult
     {
         public bool IsUpdateAvailable { get; private init; }
+        public bool IsRateLimited { get; private init; }
         public Version? LatestVersion { get; private init; }
         public string ReleasePageUrl { get; private init; } = string.Empty;
         public string? InstallerUrl { get; private init; }
 
         public static UpdateCheckResult NoUpdate() => new() { IsUpdateAvailable = false };
+
+        public static UpdateCheckResult RateLimited() => new()
+        {
+            IsUpdateAvailable = false,
+            IsRateLimited = true,
+            ReleasePageUrl = "https://github.com/Ninthless/ACEOptimizer/releases/latest"
+        };
 
         public static UpdateCheckResult Available(Version version, string pageUrl, string? installerUrl) => new()
         {

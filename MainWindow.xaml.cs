@@ -63,9 +63,24 @@ namespace ACEOptimizer
         {
             await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
             UpdateCheckResult result = await _updateService.CheckForUpdateAsync().ConfigureAwait(false);
+
+            if (result.IsRateLimited)
+            {
+                Dispatcher.Invoke(() => ShowRateLimitedBanner(result));
+                return;
+            }
+
             if (!result.IsUpdateAvailable) return;
 
             Dispatcher.Invoke(() => ShowUpdateBanner(result));
+        }
+
+        private void ShowRateLimitedBanner(UpdateCheckResult result)
+        {
+            _pendingUpdate = UpdateCheckResult.FallbackBrowser(result.ReleasePageUrl);
+            UpdateDescText.Text = GetString("String_UpdateRateLimited", "GitHub rate limit reached — click to check manually");
+            UpdateActionButton.Content = GetString("String_UpdateOpenBrowser", "Open in Browser");
+            UpdateBanner.Visibility = Visibility.Visible;
         }
 
         private void ShowUpdateBanner(UpdateCheckResult result)
