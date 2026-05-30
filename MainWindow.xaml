@@ -45,7 +45,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Title="  ACE Optimizer" Grid.Row="0">
+        <ui:TitleBar x:Name="AppTitleBar" Title="  ACE Optimizer" Grid.Row="0">
             <ui:TitleBar.Icon>
                 <ui:ImageIcon Source="pack://application:,,,/Assets/app.ico" />
             </ui:TitleBar.Icon>
@@ -78,7 +78,7 @@
                 </Border>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="ACE Optimizer" FontSize="20" FontWeight="SemiBold"
+                    <TextBlock x:Name="AppHeaderTitle" Text="ACE Optimizer" FontSize="20" FontWeight="SemiBold"
                                Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"/>
                     <TextBlock Text="{DynamicResource String_Subtitle}" FontSize="12"
                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" Margin="0,2,0,0"/>

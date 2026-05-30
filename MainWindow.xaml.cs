@@ -42,6 +42,11 @@ namespace ACEOptimizer
             _isElevated = _elevationService.IsRunningElevated();
             _aceProcessDots = CreateAceProcessDots();
 
+            string version = _updateService.CurrentVersion.ToString(3);
+            Title = $"ACE Optimizer v{version}";
+            AppTitleBar.Title = $"  ACE Optimizer v{version}";
+            AppHeaderTitle.Text = $"ACE Optimizer v{version}";
+
             UpdatePrivilegeStatus();
             _affinityMask = _aceProcessService.CalculateAffinityMask();
             CheckAutoStartStatus();
