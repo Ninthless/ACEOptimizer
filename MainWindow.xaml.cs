@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -24,12 +25,16 @@ namespace ACEOptimizer
         private readonly AceProcessService _aceProcessService = new();
         private readonly AutoStartService _autoStartService = new();
         private readonly ElevationService _elevationService = new();
+        private readonly UpdateService _updateService = new();
         private readonly DispatcherTimer _timer;
         private readonly Dictionary<string, Ellipse> _aceProcessDots;
         private readonly bool _isElevated;
         private bool _hasShownElevationPrompt;
         private bool _isExitRequested;
         private nint _affinityMask;
+
+        private UpdateCheckResult? _pendingUpdate;
+        private bool _isDownloading;
 
         public MainWindow()
         {
@@ -45,6 +50,63 @@ namespace ACEOptimizer
             _timer.Tick += Timer_Tick;
             _timer.Start();
             Timer_Tick(null, EventArgs.Empty);
+
+            _ = CheckForUpdateAsync();
+        }
+
+        private async Task CheckForUpdateAsync()
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+            UpdateCheckResult result = await _updateService.CheckForUpdateAsync().ConfigureAwait(false);
+            if (!result.IsUpdateAvailable) return;
+
+            Dispatcher.Invoke(() => ShowUpdateBanner(result));
+        }
+
+        private void ShowUpdateBanner(UpdateCheckResult result)
+        {
+            _pendingUpdate = result;
+            string descTemplate = GetString("String_UpdateDesc", "v{0} is ready — click to update now");
+            UpdateDescText.Text = string.Format(descTemplate, result.LatestVersion);
+            UpdateActionButton.Content = GetString("String_UpdateButton", "Update");
+            UpdateBanner.Visibility = Visibility.Visible;
+        }
+
+        private async void UpdateActionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isDownloading || _pendingUpdate is null) return;
+
+            if (string.IsNullOrEmpty(_pendingUpdate.InstallerUrl))
+            {
+                Process.Start(new ProcessStartInfo(_pendingUpdate.ReleasePageUrl) { UseShellExecute = true });
+                return;
+            }
+
+            _isDownloading = true;
+            UpdateActionButton.IsEnabled = false;
+            UpdateActionButton.Content = GetString("String_UpdateDownloading", "Downloading...");
+
+            try
+            {
+                Progress<int> progress = new(pct =>
+                    Dispatcher.Invoke(() =>
+                        UpdateActionButton.Content = $"{GetString("String_UpdateDownloading", "Downloading...")} {pct}%"));
+
+                string installerPath = await _updateService
+                    .DownloadInstallerAsync(_pendingUpdate.InstallerUrl, progress)
+                    .ConfigureAwait(true);
+
+                _isExitRequested = true;
+                _updateService.LaunchInstallerAndExit(installerPath);
+            }
+            catch
+            {
+                _isDownloading = false;
+                UpdateActionButton.IsEnabled = true;
+                UpdateActionButton.Content = GetString("String_UpdateOpenBrowser", "Open in Browser");
+                string fallbackUrl = _pendingUpdate.ReleasePageUrl;
+                _pendingUpdate = UpdateCheckResult.FallbackBrowser(fallbackUrl);
+            }
         }
 
         private Dictionary<string, Ellipse> CreateAceProcessDots()
@@ -313,6 +375,8 @@ namespace ACEOptimizer
         {
             if (_isExitRequested)
             {
+                _timer.Stop();
+                _updateService.Dispose();
                 trayIcon.Dispose();
                 return;
             }

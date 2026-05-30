@@ -36,4 +36,10 @@
     <sys:String x:Key="String_TrayExit">退出</sys:String>
     <sys:String x:Key="String_TrayRunning">ACE Optimizer — 运行中</sys:String>
     <sys:String x:Key="String_AlreadyRunning">ACE Optimizer 已经在运行中。</sys:String>
+    <sys:String x:Key="String_UpdateAvailable">发现新版本</sys:String>
+    <sys:String x:Key="String_UpdateDesc">v{0} 已发布，点击立即更新</sys:String>
+    <sys:String x:Key="String_UpdateButton">更新</sys:String>
+    <sys:String x:Key="String_UpdateDownloading">正在下载...</sys:String>
+    <sys:String x:Key="String_UpdateDownloadFailed">下载失败，点击在浏览器中打开</sys:String>
+    <sys:String x:Key="String_UpdateOpenBrowser">在浏览器中打开</sys:String>
 </ResourceDictionary>

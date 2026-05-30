@@ -36,4 +36,10 @@
     <sys:String x:Key="String_TrayExit">Exit</sys:String>
     <sys:String x:Key="String_TrayRunning">ACE Optimizer — Running</sys:String>
     <sys:String x:Key="String_AlreadyRunning">ACE Optimizer is already running.</sys:String>
+    <sys:String x:Key="String_UpdateAvailable">Update Available</sys:String>
+    <sys:String x:Key="String_UpdateDesc">v{0} is ready — click to update now</sys:String>
+    <sys:String x:Key="String_UpdateButton">Update</sys:String>
+    <sys:String x:Key="String_UpdateDownloading">Downloading...</sys:String>
+    <sys:String x:Key="String_UpdateDownloadFailed">Download failed — open in browser</sys:String>
+    <sys:String x:Key="String_UpdateOpenBrowser">Open in Browser</sys:String>
 </ResourceDictionary>
