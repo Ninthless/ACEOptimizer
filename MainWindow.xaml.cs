@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
@@ -35,6 +36,7 @@ namespace ACEOptimizer
 
         private UpdateCheckResult? _pendingUpdate;
         private bool _isDownloading;
+        private CancellationTokenSource? _downloadCts;
 
         public MainWindow()
         {
@@ -103,17 +105,20 @@ namespace ACEOptimizer
             }
 
             _isDownloading = true;
+            _downloadCts = new CancellationTokenSource();
             UpdateActionButton.IsEnabled = false;
             UpdateActionButton.Content = GetString("String_UpdateDownloading", "Downloading...");
 
+            string? installerPath = null;
             try
             {
                 Progress<int> progress = new(pct =>
                     Dispatcher.Invoke(() =>
                         UpdateActionButton.Content = $"{GetString("String_UpdateDownloading", "Downloading...")} {pct}%"));
 
-                (string installerPath, string sha256) = await _updateService
-                    .DownloadInstallerAsync(_pendingUpdate.InstallerUrl, progress)
+                string sha256;
+                (installerPath, sha256) = await _updateService
+                    .DownloadInstallerAsync(_pendingUpdate.InstallerUrl, progress, _downloadCts.Token)
                     .ConfigureAwait(true);
 
                 string confirmTitle = GetString("String_UpdateConfirmTitle", "Run installer?");
@@ -126,6 +131,8 @@ namespace ACEOptimizer
 
                 if (confirm != System.Windows.MessageBoxResult.Yes)
                 {
+                    _updateService.DeleteInstallerTempDir(installerPath);
+                    installerPath = null;
                     _isDownloading = false;
                     UpdateActionButton.IsEnabled = true;
                     UpdateActionButton.Content = GetString("String_UpdateButton", "Update");
@@ -133,15 +140,29 @@ namespace ACEOptimizer
                 }
 
                 _isExitRequested = true;
-                _updateService.LaunchInstallerAndExit(installerPath);
+                _updateService.LaunchInstaller(installerPath);
+                Application.Current.Shutdown();
+            }
+            catch (OperationCanceledException)
+            {
+                if (installerPath is not null)
+                    _updateService.DeleteInstallerTempDir(installerPath);
+                _isDownloading = false;
             }
             catch
             {
+                if (installerPath is not null)
+                    _updateService.DeleteInstallerTempDir(installerPath);
                 _isDownloading = false;
                 UpdateActionButton.IsEnabled = true;
                 UpdateActionButton.Content = GetString("String_UpdateOpenBrowser", "Open in Browser");
                 string fallbackUrl = _pendingUpdate.ReleasePageUrl;
                 _pendingUpdate = UpdateCheckResult.FallbackBrowser(fallbackUrl);
+            }
+            finally
+            {
+                _downloadCts?.Dispose();
+                _downloadCts = null;
             }
         }
 
@@ -412,6 +433,9 @@ namespace ACEOptimizer
             if (_isExitRequested)
             {
                 _timer.Stop();
+                _downloadCts?.Cancel();
+                _downloadCts?.Dispose();
+                _downloadCts = null;
                 _updateService.Dispose();
                 trayIcon.Dispose();
                 return;

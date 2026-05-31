@@ -10,6 +10,7 @@
     <ApplicationManifest>Properties/app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <InternalsVisibleTo>ACEOptimizer.Tests</InternalsVisibleTo>
 
     <!-- Identity -->
     <AssemblyName>ACEOptimizer</AssemblyName>
@@ -25,8 +26,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Exclude Inno Setup example files from compilation -->
     <Compile Remove="inno\**\*" />
+    <Compile Remove="ACEOptimizer.Tests\**\*" />
     <None Remove="inno\**\*" />
     <EmbeddedResource Remove="inno\**\*" />
     <Page Remove="inno\**\*" />

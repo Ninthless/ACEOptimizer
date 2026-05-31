@@ -7,7 +7,7 @@ using ACEOptimizer.Models;
 
 namespace ACEOptimizer.Services
 {
-    internal sealed class AceProcessService
+    public sealed class AceProcessService
     {
         private static readonly string[] DefaultAceProcesses = ["SGuard64", "SGuardSvc64"];
 
