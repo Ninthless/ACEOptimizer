@@ -83,7 +83,7 @@ jobs:
 
       - name: Publish
         if: steps.check_tag.outputs.EXISTS != 'true'
-        run: dotnet publish --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
+        run: dotnet publish ACEOptimizer.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
 
       - name: Check signing configuration
         if: steps.check_tag.outputs.EXISTS != 'true'
