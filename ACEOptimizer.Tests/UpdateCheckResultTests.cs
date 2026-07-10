@@ -1,4 +1,5 @@
 using ACEOptimizer.Services;
+using NetSparkleUpdater;
 
 namespace ACEOptimizer.Tests;
 
@@ -7,47 +8,51 @@ public class UpdateCheckResultTests
     [Fact]
     public void NoUpdate_IsNotAvailable()
     {
-        var result = UpdateCheckResult.NoUpdate();
+        UpdateCheckResult result = UpdateCheckResult.NoUpdate();
+
         Assert.False(result.IsUpdateAvailable);
-        Assert.False(result.IsRateLimited);
+        Assert.False(result.CheckFailed);
+        Assert.False(result.CanInstall);
         Assert.Null(result.LatestVersion);
     }
 
     [Fact]
-    public void RateLimited_IsNotAvailableButIsRateLimited()
+    public void Failed_RequiresBrowserFallback()
     {
-        var result = UpdateCheckResult.RateLimited();
+        UpdateCheckResult result = UpdateCheckResult.Failed();
+
         Assert.False(result.IsUpdateAvailable);
-        Assert.True(result.IsRateLimited);
+        Assert.True(result.CheckFailed);
+        Assert.False(result.CanInstall);
         Assert.NotEmpty(result.ReleasePageUrl);
     }
 
     [Fact]
-    public void Available_HasCorrectFields()
+    public void Available_HasInstallablePackage()
     {
-        var version = new Version(2, 0, 0);
-        var result = UpdateCheckResult.Available(version, "https://example.com", "https://example.com/setup.exe");
+        AppCastItem package = new()
+        {
+            Version = "2.0.0",
+            DownloadLink = "https://example.com/setup.exe",
+            DownloadSignature = "signature",
+            IsCriticalUpdate = true
+        };
+
+        UpdateCheckResult result = UpdateCheckResult.Available(new Version(2, 0, 0), package);
+
         Assert.True(result.IsUpdateAvailable);
-        Assert.False(result.IsRateLimited);
-        Assert.Equal(version, result.LatestVersion);
-        Assert.Equal("https://example.com", result.ReleasePageUrl);
-        Assert.Equal("https://example.com/setup.exe", result.InstallerUrl);
+        Assert.True(result.CanInstall);
+        Assert.True(result.IsCriticalUpdate);
+        Assert.Equal(new Version(2, 0, 0), result.LatestVersion);
     }
 
     [Fact]
-    public void Available_WithNullInstallerUrl_HasNullInstallerUrl()
+    public void FallbackBrowser_IsAvailableWithoutPackage()
     {
-        var result = UpdateCheckResult.Available(new Version(1, 0, 0), "https://example.com", null);
-        Assert.True(result.IsUpdateAvailable);
-        Assert.Null(result.InstallerUrl);
-    }
+        UpdateCheckResult result = UpdateCheckResult.FallbackBrowser("https://example.com/releases");
 
-    [Fact]
-    public void FallbackBrowser_IsAvailableWithNoInstaller()
-    {
-        var result = UpdateCheckResult.FallbackBrowser("https://example.com/releases");
         Assert.True(result.IsUpdateAvailable);
-        Assert.Null(result.InstallerUrl);
+        Assert.False(result.CanInstall);
         Assert.Equal("https://example.com/releases", result.ReleasePageUrl);
     }
 }
