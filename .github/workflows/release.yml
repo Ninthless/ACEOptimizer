@@ -176,7 +176,11 @@ jobs:
             --human-readable
 
           $signature = (Get-Content -Raw ".\appcast.xml.signature").Trim()
-          netsparkle-generate-appcast --verify ".\appcast.xml" --signature $signature
+          $verificationOutput = (& netsparkle-generate-appcast --verify ".\appcast.xml" --signature $signature 2>&1 | Out-String)
+          $verificationOutput | Write-Output
+          if ($verificationOutput -notmatch "Signature valid") {
+            throw "Generated appcast signature verification failed."
+          }
         shell: pwsh
 
       - name: Create Release
