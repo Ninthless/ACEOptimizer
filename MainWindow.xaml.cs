@@ -27,6 +27,7 @@ namespace ACEOptimizer
         private readonly AutoStartService _autoStartService = new();
         private readonly ElevationService _elevationService = new();
         private readonly UpdateService _updateService = new();
+        private readonly CancellationTokenSource _updateCheckCts = new();
         private readonly DispatcherTimer _timer;
         private readonly Dictionary<string, Ellipse> _aceProcessDots;
         private readonly bool _isElevated;
@@ -41,6 +42,7 @@ namespace ACEOptimizer
         public MainWindow()
         {
             InitializeComponent();
+            _updateService.ExitRequested += UpdateService_ExitRequested;
             _isElevated = _elevationService.IsRunningElevated();
             _aceProcessDots = CreateAceProcessDots();
 
@@ -58,29 +60,45 @@ namespace ACEOptimizer
             _timer.Start();
             Timer_Tick(null, EventArgs.Empty);
 
-            _ = CheckForUpdateAsync();
+            _ = CheckForUpdateAsync(_updateCheckCts.Token);
         }
 
-        private async Task CheckForUpdateAsync()
+        private async Task CheckForUpdateAsync(CancellationToken cancellationToken)
         {
-            await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
-            UpdateCheckResult result = await _updateService.CheckForUpdateAsync().ConfigureAwait(false);
-
-            if (result.IsRateLimited)
+            try
             {
-                Dispatcher.Invoke(() => ShowRateLimitedBanner(result));
-                return;
+                await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken).ConfigureAwait(false);
+                UpdateCheckResult result = await _updateService
+                    .CheckForUpdateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (result.CheckFailed)
+                {
+                    if (!cancellationToken.IsCancellationRequested && !Dispatcher.HasShutdownStarted)
+                        Dispatcher.Invoke(() => ShowUpdateCheckFailedBanner(result));
+                    return;
+                }
+
+                if (!result.IsUpdateAvailable)
+                    return;
+
+                if (!cancellationToken.IsCancellationRequested && !Dispatcher.HasShutdownStarted)
+                    Dispatcher.Invoke(() => ShowUpdateBanner(result));
             }
-
-            if (!result.IsUpdateAvailable) return;
-
-            Dispatcher.Invoke(() => ShowUpdateBanner(result));
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                if (!cancellationToken.IsCancellationRequested && !Dispatcher.HasShutdownStarted)
+                    Dispatcher.Invoke(() => ShowUpdateCheckFailedBanner(UpdateCheckResult.Failed()));
+            }
         }
 
-        private void ShowRateLimitedBanner(UpdateCheckResult result)
+        private void ShowUpdateCheckFailedBanner(UpdateCheckResult result)
         {
             _pendingUpdate = UpdateCheckResult.FallbackBrowser(result.ReleasePageUrl);
-            UpdateDescText.Text = GetString("String_UpdateRateLimited", "GitHub rate limit reached — click to check manually");
+            UpdateDescText.Text = GetString("String_UpdateCheckFailed", "Secure update check failed — click to check manually");
             UpdateActionButton.Content = GetString("String_UpdateOpenBrowser", "Open in Browser");
             UpdateBanner.Visibility = Visibility.Visible;
         }
@@ -98,7 +116,7 @@ namespace ACEOptimizer
         {
             if (_isDownloading || _pendingUpdate is null) return;
 
-            if (string.IsNullOrEmpty(_pendingUpdate.InstallerUrl))
+            if (!_pendingUpdate.CanInstall)
             {
                 Process.Start(new ProcessStartInfo(_pendingUpdate.ReleasePageUrl) { UseShellExecute = true });
                 return;
@@ -118,7 +136,7 @@ namespace ACEOptimizer
 
                 string sha256;
                 (installerPath, sha256) = await _updateService
-                    .DownloadInstallerAsync(_pendingUpdate.InstallerUrl, progress, _downloadCts.Token)
+                    .DownloadInstallerAsync(_pendingUpdate, progress, _downloadCts.Token)
                     .ConfigureAwait(true);
 
                 string confirmTitle = GetString("String_UpdateConfirmTitle", "Run installer?");
@@ -139,9 +157,7 @@ namespace ACEOptimizer
                     return;
                 }
 
-                _isExitRequested = true;
-                _updateService.LaunchInstaller(installerPath);
-                Application.Current.Shutdown();
+                await _updateService.InstallUpdateAsync(_pendingUpdate, installerPath).ConfigureAwait(true);
             }
             catch (OperationCanceledException)
             {
@@ -428,14 +444,26 @@ namespace ACEOptimizer
             e.Handled = true;
         }
 
+        private void UpdateService_ExitRequested()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _isExitRequested = true;
+                Application.Current.Shutdown();
+            });
+        }
+
         private void Window_Closing(object sender, CancelEventArgs e)
         {
             if (_isExitRequested)
             {
                 _timer.Stop();
+                _updateCheckCts.Cancel();
+                _updateCheckCts.Dispose();
                 _downloadCts?.Cancel();
                 _downloadCts?.Dispose();
                 _downloadCts = null;
+                _updateService.ExitRequested -= UpdateService_ExitRequested;
                 _updateService.Dispose();
                 trayIcon.Dispose();
                 return;

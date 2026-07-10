@@ -10,7 +10,6 @@
     <ApplicationManifest>Properties/app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <InternalsVisibleTo>ACEOptimizer.Tests</InternalsVisibleTo>
 
     <!-- Identity -->
     <AssemblyName>ACEOptimizer</AssemblyName>
@@ -20,9 +19,9 @@
     <Copyright>Copyright © 2026 Ninthless</Copyright>
 
     <!-- Version -->
-    <Version>1.2.12</Version>
-    <AssemblyVersion>1.2.12.0</AssemblyVersion>
-    <FileVersion>1.2.12.0</FileVersion>
+    <Version>1.2.13</Version>
+    <AssemblyVersion>1.2.13.0</AssemblyVersion>
+    <FileVersion>1.2.13.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,7 +37,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ACEOptimizer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.4" />
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.1.0" />
     <PackageReference Include="WPF-UI" Version="3.0.4" />
   </ItemGroup>
 

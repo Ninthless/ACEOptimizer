@@ -1,38 +1,32 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Reflection;
+using System.Security;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using NetSparkleUpdater;
+using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.Events;
 
 namespace ACEOptimizer.Services
 {
     public sealed class UpdateService : IDisposable
     {
-        private const string ReleasesApiUrl = "https://api.github.com/repos/Ninthless/ACEOptimizer/releases/latest";
-        private static readonly string UserAgent =
-            $"ACEOptimizer/{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0"} (Windows; +https://github.com/Ninthless/ACEOptimizer)";
+        private readonly SparkleUpdater _sparkleUpdater;
+        private bool _disposed;
 
-        private static readonly HttpClient SharedHttpClient = CreateHttpClient(null);
-        private readonly HttpClient _httpClient;
+        public event Action? ExitRequested;
 
-        public UpdateService(HttpMessageHandler? handler = null)
+        public UpdateService()
+            : this(CreateSparkleUpdater())
         {
-            _httpClient = handler is not null
-                ? CreateHttpClient(handler)
-                : SharedHttpClient;
         }
 
-        private static HttpClient CreateHttpClient(HttpMessageHandler? handler)
+        internal UpdateService(SparkleUpdater sparkleUpdater)
         {
-            var client = handler is not null ? new HttpClient(handler) : new HttpClient();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
-            client.Timeout = TimeSpan.FromSeconds(15);
-            return client;
+            _sparkleUpdater = sparkleUpdater;
+            _sparkleUpdater.CloseApplication += OnCloseApplication;
         }
 
         public Version CurrentVersion =>
@@ -40,185 +34,198 @@ namespace ACEOptimizer.Services
 
         public async Task<UpdateCheckResult> CheckForUpdateAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                GitHubRelease? release = await _httpClient
-                    .GetFromJsonAsync<GitHubRelease>(ReleasesApiUrl, cancellationToken)
-                    .ConfigureAwait(false);
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
 
-                if (release is null || string.IsNullOrWhiteSpace(release.TagName))
-                    return UpdateCheckResult.NoUpdate();
+            UpdateInfo updateInfo = await _sparkleUpdater.CheckForUpdatesQuietly().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-                string tag = release.TagName.TrimStart('v', 'V');
-                if (!Version.TryParse(tag, out Version? latestVersion))
-                    return UpdateCheckResult.NoUpdate();
+            if (updateInfo.Status == UpdateStatus.CouldNotDetermine)
+                return UpdateCheckResult.Failed();
 
-                if (latestVersion <= CurrentVersion)
-                    return UpdateCheckResult.NoUpdate();
-
-                string? installerUrl = FindInstallerAssetUrl(release);
-                return UpdateCheckResult.Available(latestVersion, release.HtmlUrl ?? string.Empty, installerUrl);
-            }
-            catch (OperationCanceledException)
-            {
+            if (updateInfo.Status != UpdateStatus.UpdateAvailable || updateInfo.Updates.Count == 0)
                 return UpdateCheckResult.NoUpdate();
-            }
-            catch (HttpRequestException ex) when (
-                ex.StatusCode == System.Net.HttpStatusCode.Forbidden ||
-                ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
-                return UpdateCheckResult.RateLimited();
-            }
-            catch
-            {
-                return UpdateCheckResult.NoUpdate();
-            }
+
+            AppCastItem package = updateInfo.Updates[0];
+            string versionText = package.ShortVersion ?? package.Version ?? string.Empty;
+            if (!Version.TryParse(versionText, out Version? latestVersion))
+                return UpdateCheckResult.Failed();
+
+            return UpdateCheckResult.Available(latestVersion, package);
         }
 
         public async Task<(string Path, string Sha256)> DownloadInstallerAsync(
-            string url,
+            UpdateCheckResult update,
             IProgress<int>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"ACEOptimizer_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
-            string tempPath = System.IO.Path.Combine(tempDir, "ACEOptimizer_Setup.exe");
+            ThrowIfDisposed();
+            AppCastItem package = update.Package
+                ?? throw new InvalidOperationException("The update does not contain an installable package.");
+
+            if (string.IsNullOrWhiteSpace(package.DownloadLink))
+                throw new InvalidOperationException("The update package has no download URL.");
+
+            _sparkleUpdater.TmpDownloadFileNameWithExtension =
+                $"ACEOptimizer_Setup_v{update.LatestVersion}.exe";
+
+            TaskCompletionSource<string> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void DownloadFinished(AppCastItem item, string path) => completion.TrySetResult(path);
+            void DownloadFailed(AppCastItem item, string? path, Exception exception) => completion.TrySetException(exception);
+            void DownloadCanceled(AppCastItem item, string path) => completion.TrySetCanceled(cancellationToken);
+            void DownloadCorrupt(AppCastItem item, string path) => completion.TrySetException(new SecurityException("The downloaded installer signature is invalid."));
+            void DownloadSignatureFailed(AppCastItem item, string path) => completion.TrySetException(new SecurityException("The downloaded installer signature could not be verified."));
+            void DownloadProgress(object sender, AppCastItem item, ItemDownloadProgressEventArgs args) => progress?.Report(args.ProgressPercentage);
+
+            _sparkleUpdater.DownloadFinished += DownloadFinished;
+            _sparkleUpdater.DownloadHadError += DownloadFailed;
+            _sparkleUpdater.DownloadCanceled += DownloadCanceled;
+            _sparkleUpdater.DownloadedFileIsCorrupt += DownloadCorrupt;
+            _sparkleUpdater.DownloadedFileThrewWhileCheckingSignature += DownloadSignatureFailed;
+            _sparkleUpdater.DownloadMadeProgress += DownloadProgress;
+
+            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            {
+                _sparkleUpdater.CancelFileDownload();
+                completion.TrySetCanceled(cancellationToken);
+            });
 
             try
             {
-                using HttpResponseMessage response = await _httpClient
-                    .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                    .ConfigureAwait(false);
-
-                response.EnsureSuccessStatusCode();
-
-                long total = response.Content.Headers.ContentLength ?? -1;
-                await using Stream source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                await using FileStream dest = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
-
-                byte[] buffer = new byte[81920];
-                long downloaded = 0;
-                int read;
-
-                while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-                {
-                    await dest.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                    downloaded += read;
-
-                    if (total > 0)
-                        progress?.Report((int)(downloaded * 100 / total));
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                await _sparkleUpdater.InitAndBeginDownload(package).ConfigureAwait(false);
+                string installerPath = await completion.Task.ConfigureAwait(false);
+                string sha256 = await ComputeSha256Async(installerPath).ConfigureAwait(false);
+                return (installerPath, sha256);
             }
-            catch
+            finally
             {
-                TryDeleteTempDir(tempDir);
-                throw;
+                _sparkleUpdater.DownloadFinished -= DownloadFinished;
+                _sparkleUpdater.DownloadHadError -= DownloadFailed;
+                _sparkleUpdater.DownloadCanceled -= DownloadCanceled;
+                _sparkleUpdater.DownloadedFileIsCorrupt -= DownloadCorrupt;
+                _sparkleUpdater.DownloadedFileThrewWhileCheckingSignature -= DownloadSignatureFailed;
+                _sparkleUpdater.DownloadMadeProgress -= DownloadProgress;
+            }
+        }
+
+        public async Task InstallUpdateAsync(UpdateCheckResult update, string installerPath)
+        {
+            ThrowIfDisposed();
+            AppCastItem package = update.Package
+                ?? throw new InvalidOperationException("The update does not contain an installable package.");
+
+            if (!AuthenticodeVerifier.IsTrusted(installerPath))
+                throw new SecurityException("The installer does not have a trusted Authenticode signature.");
+
+            InstallUpdateFailureReason? failureReason = null;
+            bool InstallFailed(InstallUpdateFailureReason reason, string? path)
+            {
+                failureReason = reason;
+                return false;
             }
 
-            string sha256 = await ComputeSha256Async(tempPath).ConfigureAwait(false);
-            return (tempPath, sha256);
+            _sparkleUpdater.InstallUpdateFailed += InstallFailed;
+            try
+            {
+                await _sparkleUpdater.InstallUpdate(package, installerPath).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sparkleUpdater.InstallUpdateFailed -= InstallFailed;
+            }
+
+            if (failureReason.HasValue)
+                throw new InvalidOperationException($"The installer could not be started: {failureReason.Value}.");
         }
 
         public void DeleteInstallerTempDir(string installerPath)
         {
             try
             {
-                string? dir = System.IO.Path.GetDirectoryName(installerPath);
-                if (!string.IsNullOrEmpty(dir))
-                    TryDeleteTempDir(dir);
+                if (File.Exists(installerPath))
+                    File.Delete(installerPath);
             }
-            catch { }
+            catch
+            {
+            }
         }
 
-        private static void TryDeleteTempDir(string dir)
+        public void Dispose()
         {
-            try { Directory.Delete(dir, recursive: true); } catch { }
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            _sparkleUpdater.CloseApplication -= OnCloseApplication;
+            _sparkleUpdater.CancelFileDownload();
+            _sparkleUpdater.Dispose();
+        }
+
+        private static SparkleUpdater CreateSparkleUpdater()
+        {
+            TrustedUpdateSignatureVerifier signatureVerifier = new(UpdateSecurity.TrustedPublicKeys);
+            if (!signatureVerifier.HasValidKeyInformation())
+                throw new InvalidOperationException("No valid update signing key is configured.");
+
+            return new SparkleUpdater(UpdateSecurity.AppCastUrl, signatureVerifier)
+            {
+                UIFactory = null,
+                CheckServerFileName = false,
+                TmpDownloadFilePath = Path.Combine(Path.GetTempPath(), "ACEOptimizer", "Updates"),
+                RelaunchAfterUpdate = false,
+                ShouldKillParentProcessWhenStartingInstaller = true
+            };
         }
 
         private static async Task<string> ComputeSha256Async(string filePath)
         {
-            await using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
-            byte[] hash = await SHA256.HashDataAsync(fs).ConfigureAwait(false);
+            await using FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true);
+            byte[] hash = await SHA256.HashDataAsync(stream).ConfigureAwait(false);
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
-        public void LaunchInstaller(string installerPath)
+        private void OnCloseApplication()
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = installerPath,
-                UseShellExecute = true,
-                Verb = string.Empty
-            });
+            ExitRequested?.Invoke();
         }
 
-        private static string? FindInstallerAssetUrl(GitHubRelease release)
+        private void ThrowIfDisposed()
         {
-            if (release.Assets is null) return null;
-
-            foreach (GitHubAsset asset in release.Assets)
-            {
-                string name = asset.Name ?? string.Empty;
-                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
-                    name.Contains("Setup", StringComparison.OrdinalIgnoreCase))
-                    return asset.BrowserDownloadUrl;
-            }
-
-            foreach (GitHubAsset asset in release.Assets)
-            {
-                if ((asset.Name ?? string.Empty).EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    return asset.BrowserDownloadUrl;
-            }
-
-            return null;
+            ObjectDisposedException.ThrowIf(_disposed, this);
         }
-
-        public void Dispose() { }
     }
 
     public sealed class UpdateCheckResult
     {
+        internal AppCastItem? Package { get; private init; }
+
         public bool IsUpdateAvailable { get; private init; }
-        public bool IsRateLimited { get; private init; }
+        public bool CheckFailed { get; private init; }
+        public bool CanInstall => Package is not null;
+        public bool IsCriticalUpdate => Package?.IsCriticalUpdate == true;
         public Version? LatestVersion { get; private init; }
-        public string ReleasePageUrl { get; private init; } = string.Empty;
-        public string? InstallerUrl { get; private init; }
+        public string ReleasePageUrl { get; private init; } = UpdateSecurity.ReleasePageUrl;
 
-        public static UpdateCheckResult NoUpdate() => new() { IsUpdateAvailable = false };
+        public static UpdateCheckResult NoUpdate() => new();
 
-        public static UpdateCheckResult RateLimited() => new()
+        public static UpdateCheckResult Failed() => new()
         {
-            IsUpdateAvailable = false,
-            IsRateLimited = true,
-            ReleasePageUrl = "https://github.com/Ninthless/ACEOptimizer/releases/latest"
+            CheckFailed = true
         };
 
-        public static UpdateCheckResult Available(Version version, string pageUrl, string? installerUrl) => new()
+        internal static UpdateCheckResult Available(Version version, AppCastItem package) => new()
         {
             IsUpdateAvailable = true,
             LatestVersion = version,
-            ReleasePageUrl = pageUrl,
-            InstallerUrl = installerUrl
+            Package = package
         };
 
         public static UpdateCheckResult FallbackBrowser(string pageUrl) => new()
         {
             IsUpdateAvailable = true,
-            ReleasePageUrl = pageUrl,
-            InstallerUrl = null
+            ReleasePageUrl = pageUrl
         };
-    }
-
-    public sealed class GitHubRelease
-    {
-        [JsonPropertyName("tag_name")] public string? TagName { get; set; }
-        [JsonPropertyName("html_url")] public string? HtmlUrl { get; set; }
-        [JsonPropertyName("assets")] public GitHubAsset[]? Assets { get; set; }
-    }
-
-    public sealed class GitHubAsset
-    {
-        [JsonPropertyName("name")] public string? Name { get; set; }
-        [JsonPropertyName("browser_download_url")] public string? BrowserDownloadUrl { get; set; }
     }
 }
