@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Security;
 using System.Text;
 using ACEOptimizer.Services;
 using NetSparkleUpdater;
@@ -89,27 +88,6 @@ public class UpdateServiceTests
         {
             if (Directory.Exists(downloadDirectory))
                 Directory.Delete(downloadDirectory, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task InstallUpdateAsync_WhenInstallerIsUnsigned_ThrowsSecurityException()
-    {
-        string installerPath = Path.Combine(Path.GetTempPath(), $"ACEOptimizerUnsigned_{Guid.NewGuid():N}.exe");
-        await File.WriteAllTextAsync(installerPath, "unsigned");
-        using UpdateService service = CreateService(CreateAppCast("99.0.0"));
-        UpdateCheckResult update = UpdateCheckResult.Available(
-            new Version(99, 0, 0),
-            CreatePackage("99.0.0"));
-
-        try
-        {
-            await Assert.ThrowsAsync<SecurityException>(() =>
-                service.InstallUpdateAsync(update, installerPath));
-        }
-        finally
-        {
-            File.Delete(installerPath);
         }
     }
 

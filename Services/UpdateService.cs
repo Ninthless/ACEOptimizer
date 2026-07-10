@@ -116,9 +116,6 @@ namespace ACEOptimizer.Services
             AppCastItem package = update.Package
                 ?? throw new InvalidOperationException("The update does not contain an installable package.");
 
-            if (!AuthenticodeVerifier.IsTrusted(installerPath))
-                throw new SecurityException("The installer does not have a trusted Authenticode signature.");
-
             InstallUpdateFailureReason? failureReason = null;
             bool InstallFailed(InstallUpdateFailureReason reason, string? path)
             {

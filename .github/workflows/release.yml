@@ -12,18 +12,10 @@ env:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
-      AZURE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_SIGNING_ACCOUNT_NAME }}
-      AZURE_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME }}
 
     steps:
       - name: Checkout
@@ -74,51 +66,12 @@ jobs:
       - name: Publish
         run: dotnet publish ACEOptimizer.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
 
-      - name: Validate release secrets
+      - name: Validate update signing secret
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.NETSPARKLE_PRIVATE_KEY }}
         run: |
-          $required = @(
-            "AZURE_CLIENT_ID",
-            "AZURE_TENANT_ID",
-            "AZURE_SUBSCRIPTION_ID",
-            "AZURE_SIGNING_ENDPOINT",
-            "AZURE_SIGNING_ACCOUNT_NAME",
-            "AZURE_SIGNING_CERTIFICATE_PROFILE_NAME",
-            "SPARKLE_PRIVATE_KEY"
-          )
-          $missing = $required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
-          if ($missing) {
-            throw "Release signing configuration is incomplete: $($missing -join ', ')"
-          }
-        shell: pwsh
-
-      - name: Azure login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign application
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ env.AZURE_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ env.AZURE_SIGNING_ACCOUNT_NAME }}
-          certificate-profile-name: ${{ env.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME }}
-          files: ${{ github.workspace }}\publish\ACEOptimizer.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: ACE Optimizer
-          description-url: https://github.com/Ninthless/ACEOptimizer
-
-      - name: Verify application signature
-        run: |
-          $signature = Get-AuthenticodeSignature -LiteralPath ".\publish\ACEOptimizer.exe"
-          $signature | Format-List Status,StatusMessage,SignerCertificate,TimeStamperCertificate,Path
-          if ($signature.Status -ne "Valid") {
-            throw "Application signature is not valid: $($signature.Status) $($signature.StatusMessage)"
+          if ([string]::IsNullOrWhiteSpace($env:SPARKLE_PRIVATE_KEY)) {
+            throw "NETSPARKLE_PRIVATE_KEY is not configured."
           }
         shell: pwsh
 
@@ -134,29 +87,6 @@ jobs:
             /DOutputDir="$pwd" `
             /DSourceDir="$pwd" `
             /DOutputBaseFilename="ACEOptimizer_Setup_v$version"
-        shell: pwsh
-
-      - name: Sign installer
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ env.AZURE_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ env.AZURE_SIGNING_ACCOUNT_NAME }}
-          certificate-profile-name: ${{ env.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME }}
-          files: ${{ github.workspace }}\ACEOptimizer_Setup_v${{ steps.version.outputs.VERSION }}.exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: ACE Optimizer Setup
-          description-url: https://github.com/Ninthless/ACEOptimizer
-
-      - name: Verify installer signature
-        run: |
-          $installer = ".\ACEOptimizer_Setup_v${{ steps.version.outputs.VERSION }}.exe"
-          $signature = Get-AuthenticodeSignature -LiteralPath $installer
-          $signature | Format-List Status,StatusMessage,SignerCertificate,TimeStamperCertificate,Path
-          if ($signature.Status -ne "Valid") {
-            throw "Installer signature is not valid: $($signature.Status) $($signature.StatusMessage)"
-          }
         shell: pwsh
 
       - name: Create portable archive
