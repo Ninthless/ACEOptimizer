@@ -2,15 +2,13 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - 'README.md'
-      - '.gitignore'
-      - '.github/**'
+    tags:
+      - 'v*'
 
 env:
   DOTNET_VERSION: '8.0.x'
+  NETSPARKLE_TOOL_VERSION: '2.9.0'
+  SPARKLE_PUBLIC_KEY: 'J4bP9IT3dIqnPnxI1Q+bx+dFP5z/J6IbirO8uiCgr1U='
 
 permissions:
   contents: write
@@ -38,56 +36,47 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Get version from .csproj
+      - name: Validate release tag
         id: version
         run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+            throw "Release tag must use v<version> format, for example v1.2.13. Received: $tag"
+          }
+
+          $version = $tag.Substring(1)
           [xml]$csproj = Get-Content "ACEOptimizer.csproj"
-          $version = $csproj.Project.PropertyGroup.Version
-          if (-not $version) {
-            $version = "1.0.0"
+          $projectVersion = [string]$csproj.Project.PropertyGroup.Version
+          if ([string]::IsNullOrWhiteSpace($projectVersion)) {
+            throw "ACEOptimizer.csproj does not define a Version value."
           }
+          if ($version -ne $projectVersion) {
+            throw "Release tag version $version does not match ACEOptimizer.csproj version $projectVersion."
+          }
+
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "TAG=v$version" >> $env:GITHUB_OUTPUT
+          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
         shell: pwsh
-
-      - name: Check if tag exists
-        id: check_tag
-        run: |
-          $tag = "${{ steps.version.outputs.TAG }}"
-          $exists = git tag -l $tag
-          if ($exists) {
-            echo "EXISTS=true" >> $env:GITHUB_OUTPUT
-          } else {
-            echo "EXISTS=false" >> $env:GITHUB_OUTPUT
-          }
-        shell: pwsh
-
-      - name: Skip if tag already exists
-        if: steps.check_tag.outputs.EXISTS == 'true'
-        run: |
-          echo "Version ${{ steps.version.outputs.TAG }} already exists. Skipping release."
-          echo "To create a new release, update the version in ACEOptimizer.csproj"
 
       - name: Build and Release
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           echo "Building version ${{ steps.version.outputs.VERSION }}"
 
       - name: Restore dependencies
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet restore
 
       - name: Build
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet build --configuration Release --no-restore
 
+      - name: Test
+        run: dotnet test ACEOptimizer.sln --configuration Release --no-build --no-restore
+
       - name: Publish
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: dotnet publish ACEOptimizer.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ./publish
 
-      - name: Check signing configuration
-        if: steps.check_tag.outputs.EXISTS != 'true'
-        id: signing
+      - name: Validate release secrets
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.NETSPARKLE_PRIVATE_KEY }}
         run: |
           $required = @(
             "AZURE_CLIENT_ID",
@@ -95,19 +84,16 @@ jobs:
             "AZURE_SUBSCRIPTION_ID",
             "AZURE_SIGNING_ENDPOINT",
             "AZURE_SIGNING_ACCOUNT_NAME",
-            "AZURE_SIGNING_CERTIFICATE_PROFILE_NAME"
+            "AZURE_SIGNING_CERTIFICATE_PROFILE_NAME",
+            "SPARKLE_PRIVATE_KEY"
           )
           $missing = $required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
           if ($missing) {
-            echo "ENABLED=false" >> $env:GITHUB_OUTPUT
-            echo "::warning::Code signing skipped. Missing GitHub secrets: $($missing -join ', ')"
-          } else {
-            echo "ENABLED=true" >> $env:GITHUB_OUTPUT
+            throw "Release signing configuration is incomplete: $($missing -join ', ')"
           }
         shell: pwsh
 
       - name: Azure login
-        if: steps.check_tag.outputs.EXISTS != 'true' && steps.signing.outputs.ENABLED == 'true'
         uses: azure/login@v3
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
@@ -115,7 +101,6 @@ jobs:
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign application
-        if: steps.check_tag.outputs.EXISTS != 'true' && steps.signing.outputs.ENABLED == 'true'
         uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ env.AZURE_SIGNING_ENDPOINT }}
@@ -129,7 +114,6 @@ jobs:
           description-url: https://github.com/Ninthless/ACEOptimizer
 
       - name: Verify application signature
-        if: steps.check_tag.outputs.EXISTS != 'true' && steps.signing.outputs.ENABLED == 'true'
         run: |
           $signature = Get-AuthenticodeSignature -LiteralPath ".\publish\ACEOptimizer.exe"
           $signature | Format-List Status,StatusMessage,SignerCertificate,TimeStamperCertificate,Path
@@ -139,11 +123,9 @@ jobs:
         shell: pwsh
 
       - name: Setup Inno Setup
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: choco install innosetup -y
 
       - name: Build installer
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           $pwd = $PWD -replace '\\', '/'
@@ -155,7 +137,6 @@ jobs:
         shell: pwsh
 
       - name: Sign installer
-        if: steps.check_tag.outputs.EXISTS != 'true' && steps.signing.outputs.ENABLED == 'true'
         uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ env.AZURE_SIGNING_ENDPOINT }}
@@ -169,7 +150,6 @@ jobs:
           description-url: https://github.com/Ninthless/ACEOptimizer
 
       - name: Verify installer signature
-        if: steps.check_tag.outputs.EXISTS != 'true' && steps.signing.outputs.ENABLED == 'true'
         run: |
           $installer = ".\ACEOptimizer_Setup_v${{ steps.version.outputs.VERSION }}.exe"
           $signature = Get-AuthenticodeSignature -LiteralPath $installer
@@ -180,18 +160,18 @@ jobs:
         shell: pwsh
 
       - name: Create portable archive
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           Compress-Archive -Path ./publish/ACEOptimizer.exe -DestinationPath ./ACEOptimizer_Portable_v${{ steps.version.outputs.VERSION }}.zip
         shell: pwsh
 
       - name: Generate release notes
-        if: steps.check_tag.outputs.EXISTS != 'true'
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           $tag = "${{ steps.version.outputs.TAG }}"
           $repo = "${{ github.repository }}"
-          $previousTag = git tag --sort=-version:refname | Select-Object -First 1
+          $previousTag = git tag --merged HEAD --list "v*" --sort=-version:refname |
+            Where-Object { $_ -ne $tag } |
+            Select-Object -First 1
 
           if ($previousTag) {
             $range = "$previousTag..HEAD"
@@ -237,17 +217,39 @@ jobs:
           Set-Content -Path RELEASE_NOTES.md -Value $notes -Encoding UTF8
         shell: pwsh
 
-      - name: Create tag
-        if: steps.check_tag.outputs.EXISTS != 'true'
+      - name: Generate signed update feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.NETSPARKLE_PRIVATE_KEY }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a ${{ steps.version.outputs.TAG }} -m "Release ${{ steps.version.outputs.VERSION }}"
-          git push origin ${{ steps.version.outputs.TAG }}
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $tag = "${{ steps.version.outputs.TAG }}"
+          $repo = "${{ github.repository }}"
+          $installer = ".\ACEOptimizer_Setup_v$version.exe"
+          $notesDirectory = ".\appcast-notes"
+
+          New-Item -ItemType Directory -Force -Path $notesDirectory | Out-Null
+          Copy-Item -LiteralPath ".\RELEASE_NOTES.md" -Destination "$notesDirectory\$version.md"
+
+          dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version "${{ env.NETSPARKLE_TOOL_VERSION }}"
+
+          netsparkle-generate-appcast `
+            --single-file $installer `
+            --file-extract-version true `
+            --appcast-output-directory "." `
+            --base-url "https://github.com/$repo/releases/download/$tag" `
+            --link-tag "https://github.com/$repo/releases/latest/download/appcast.xml" `
+            --change-log-path $notesDirectory `
+            --product-name "ACE Optimizer" `
+            --description-tag "Signed update feed for ACE Optimizer" `
+            --output-file-name "appcast" `
+            --os "windows-x64" `
+            --human-readable
+
+          $signature = (Get-Content -Raw ".\appcast.xml.signature").Trim()
+          netsparkle-generate-appcast --verify ".\appcast.xml" --signature $signature
         shell: pwsh
 
       - name: Create Release
-        if: steps.check_tag.outputs.EXISTS != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
@@ -256,6 +258,8 @@ jobs:
           files: |
             ACEOptimizer_Setup_*.exe
             ACEOptimizer_Portable_*.zip
+            appcast.xml
+            appcast.xml.signature
           draft: false
           prerelease: false
         env:
