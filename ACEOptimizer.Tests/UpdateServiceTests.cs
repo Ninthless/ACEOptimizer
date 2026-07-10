@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using ACEOptimizer.Services;
 using NetSparkleUpdater;
+using NetSparkleUpdater.Configurations;
 using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.Events;
 using NetSparkleUpdater.Interfaces;
@@ -27,6 +28,21 @@ public class UpdateServiceTests
     public async Task CheckForUpdate_WhenLatestIsOlder_ReturnsNoUpdate()
     {
         using UpdateService service = CreateService(CreateAppCast("0.0.1"));
+
+        UpdateCheckResult result = await service.CheckForUpdateAsync();
+
+        Assert.False(result.IsUpdateAvailable);
+        Assert.False(result.CheckFailed);
+    }
+
+    [Fact]
+    public async Task CheckForUpdate_WhenLatestMatchesCurrentVersion_ReturnsNoUpdate()
+    {
+        Version assemblyVersion = typeof(UpdateService).Assembly.GetName().Version
+            ?? throw new InvalidOperationException("The application version is unavailable.");
+        using UpdateService service = CreateService(
+            CreateAppCast(assemblyVersion.ToString(3)),
+            installedVersion: "0.0.0");
 
         UpdateCheckResult result = await service.CheckForUpdateAsync();
 
@@ -93,18 +109,21 @@ public class UpdateServiceTests
 
     private static UpdateService CreateService(
         string appCast,
-        ISignatureVerifier? signatureVerifier = null)
+        ISignatureVerifier? signatureVerifier = null,
+        string? installedVersion = null)
     {
         return new UpdateService(CreateSparkleUpdater(
             appCast,
-            signatureVerifier ?? new StubSignatureVerifier(ValidationResult.Valid)));
+            signatureVerifier ?? new StubSignatureVerifier(ValidationResult.Valid),
+            installedVersion));
     }
 
     private static SparkleUpdater CreateSparkleUpdater(
         string appCast,
-        ISignatureVerifier signatureVerifier)
+        ISignatureVerifier signatureVerifier,
+        string? installedVersion = null)
     {
-        return new SparkleUpdater(
+        SparkleUpdater updater = new(
             "https://example.com/appcast.xml",
             signatureVerifier,
             typeof(UpdateService).Assembly.Location)
@@ -113,6 +132,11 @@ public class UpdateServiceTests
             CheckServerFileName = false,
             AppCastDataDownloader = new StubAppCastDataDownloader(appCast)
         };
+
+        if (installedVersion is not null)
+            updater.Configuration = new DefaultConfiguration(new StubAssemblyAccessor(installedVersion));
+
+        return updater;
     }
 
     private static AppCastItem CreatePackage(string version)
@@ -201,6 +225,16 @@ internal sealed class StubSignatureVerifier(ValidationResult result) : ISignatur
     {
         return result;
     }
+}
+
+internal sealed class StubAssemblyAccessor(string assemblyVersion) : IAssemblyAccessor
+{
+    public string AssemblyCompany => "Ninthless";
+    public string AssemblyCopyright => string.Empty;
+    public string AssemblyDescription => string.Empty;
+    public string AssemblyTitle => "ACE Optimizer";
+    public string AssemblyProduct => "ACE Optimizer";
+    public string AssemblyVersion => assemblyVersion;
 }
 
 internal sealed class StubUpdateDownloader(byte[] content) : IUpdateDownloader

@@ -91,14 +91,14 @@ To create a new release:
 Example:
 
 ```xml
-<Version>1.2.13</Version>
-<AssemblyVersion>1.2.13.0</AssemblyVersion>
-<FileVersion>1.2.13.0</FileVersion>
+<Version>1.2.14</Version>
+<AssemblyVersion>1.2.14.0</AssemblyVersion>
+<FileVersion>1.2.14.0</FileVersion>
 ```
 
 ```powershell
-git tag v1.2.13
-git push origin v1.2.13
+git tag v1.2.14
+git push origin v1.2.14
 ```
 
 The release workflow rejects tags whose version does not exactly match the `Version` value in `ACEOptimizer.csproj`.

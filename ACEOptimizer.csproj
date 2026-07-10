@@ -10,6 +10,7 @@
     <ApplicationManifest>Properties/app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- Identity -->
     <AssemblyName>ACEOptimizer</AssemblyName>
@@ -19,9 +20,9 @@
     <Copyright>Copyright © 2026 Ninthless</Copyright>
 
     <!-- Version -->
-    <Version>1.2.13</Version>
-    <AssemblyVersion>1.2.13.0</AssemblyVersion>
-    <FileVersion>1.2.13.0</FileVersion>
+    <Version>1.2.14</Version>
+    <AssemblyVersion>1.2.14.0</AssemblyVersion>
+    <FileVersion>1.2.14.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

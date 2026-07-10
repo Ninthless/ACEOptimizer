@@ -51,6 +51,9 @@ namespace ACEOptimizer.Services
             if (!Version.TryParse(versionText, out Version? latestVersion))
                 return UpdateCheckResult.Failed();
 
+            if (latestVersion <= CurrentVersion)
+                return UpdateCheckResult.NoUpdate();
+
             return UpdateCheckResult.Available(latestVersion, package);
         }
 
